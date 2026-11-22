@@ -979,6 +979,22 @@ function computeAll() {
   SCORES.after = scoreOf(RES.map(x => x.after.m));
   makeClips();
 }
+/* Cable holders come in fixed sizes (slots side by side). A bundle gets the smallest holder that fits
+   it (3 cables -> a 4-slot holder with one spare); bundles bigger than the largest size are split. */
+const HOLDER_SIZES = [1, 2, 4, 6];
+function holderSplit(n) {
+  const out = [], big = HOLDER_SIZES.at(-1);
+  while (n > big) { out.push(big); n -= big; }
+  if (n > 0) out.push(HOLDER_SIZES.find(z => z >= n));
+  return out;
+}
+// { size: count } over every holder in the plan, e.g. { 1: 5, 2: 3, 4: 2 }
+function holderCounts(list = CLIPS) {
+  const m = {};
+  for (const c of list) for (const z of c.holders || [1]) m[z] = (m[z] || 0) + 1;
+  return m;
+}
+const holderText = m => Object.keys(m).map(Number).sort((a, b) => a - b).map(z => `${m[z]}× ${z}-cable`).join(', ');
 function makeClips() {
   const { H, yU } = geo();
   const raw = [], sl = [];
@@ -989,13 +1005,14 @@ function makeClips() {
       const a = pts[i], b = pts[i + 1], tag = tags[i], L = a.distanceTo(b);
       if (tag === 'lane' && a.y > yU - 6 && b.y > yU - 6 && L > 3) {
         const ax = Math.abs(b.x - a.x) >= Math.abs(b.z - a.z) ? 'x' : 'z';
+        if (ax === 'z' && L < 20) continue; // short turn from the back edge into the lane: no holder needed
         const lo = Math.min(a[ax], b[ax]), hi = Math.max(a[ax], b[ax]);
         let any = false;
         for (let v = Math.ceil(lo / 25) * 25; v <= hi; v += 25) {
           const t = (v - a[ax]) / (b[ax] - a[ax]);
           const p = a.clone().lerp(b, t); raw.push({ x: p.x, z: p.z, surf: 'under', ax, n: 1, id: R.c.id }); any = true;
         }
-        if (!any && L > 8) { const p = a.clone().lerp(b, 0.5); raw.push({ x: p.x, z: p.z, surf: 'under', ax, n: 1, id: R.c.id }); }
+        if (!any && L > 8) { const p = a.clone().lerp(b, 0.5); raw.push({ x: p.x, z: p.z, surf: 'under', ax, n: 1, id: R.c.id, mid: true, lo: lo, hi: hi }); }
       } else if (tag === 'desk' && L > 18) {
         for (let s = 8; s < L - 4; s += 30) { const p = a.clone().lerp(b, s / L); raw.push({ x: p.x, z: p.z, surf: 'desk', n: 1, id: R.c.id }); }
       } else if (tag === 'drop' && L > 15) {
@@ -1007,17 +1024,19 @@ function makeClips() {
   // under the desk, parallel cables next to each other share one holder: same spot along the run,
   // and the bundle may be up to 15 cm wide across it (lo/hi = the bundle's edges across the run)
   const across = c => (c.ax === 'z' ? c.x : c.z), along = c => (c.ax === 'z' ? c.z : c.x);
+  // grid holders first; a short run without a grid spot joins a holder anywhere along its length
+  raw.sort((a, b) => !!a.mid - !!b.mid);
   for (const c of raw) {
     let m;
-    if (c.ax) m = CLIPS.find(o => o.ax === c.ax && Math.abs(along(o) - along(c)) < 5 && across(c) >= o.lo - 3 && across(c) <= o.hi + 3 && Math.max(o.hi, across(c)) - Math.min(o.lo, across(c)) <= 15);
+    if (c.ax) m = CLIPS.find(o => o.ax === c.ax && (c.mid ? along(o) >= c.lo - 2 && along(o) <= c.hi + 2 : Math.abs(along(o) - along(c)) < 5) && across(c) >= o.lo - 3 && across(c) <= o.hi + 3 && Math.max(o.hi, across(c)) - Math.min(o.lo, across(c)) <= 15);
     else m = CLIPS.find(o => !o.ax && o.surf === c.surf && Math.hypot(o.x - c.x, o.z - c.z) < 5);
     if (m) {
       if (c.ax) { m.lo = Math.min(m.lo, across(c)); m.hi = Math.max(m.hi, across(c)); const mid = (m.lo + m.hi) / 2; if (c.ax === 'z') m.x = mid; else m.z = mid; }
       else { m.x = (m.x * m.k + c.x) / (m.k + 1); m.z = (m.z * m.k + c.z) / (m.k + 1); }
       m.k++; m.ids.add(c.id); m.n = m.ids.size;
-    } else CLIPS.push({ ...c, k: 1, ids: new Set([c.id]), lo: across(c), hi: across(c) });
+    } else { const { mid, ...rest } = c; CLIPS.push({ ...rest, k: 1, ids: new Set([c.id]), lo: across(c), hi: across(c) }); }
   }
-  for (const c of CLIPS) c.span = c.ax ? c.hi - c.lo : 0;
+  for (const c of CLIPS) { c.span = c.ax ? c.hi - c.lo : 0; c.holders = holderSplit(c.n); }
   SLEEVES = [];
   for (const s of sl) {
     const m = SLEEVES.find(o => Math.hypot(o.x - s.x, o.z - s.z) < 9);
@@ -1058,11 +1077,25 @@ function renderCables() {
     const cm = M('#ff9f1a', { r: 0.5, e: '#5a3000', ei: 0.4 }), dm = M('#f4f4f0', { r: 0.4 });
     for (const c of CLIPS) {
       const under = c.surf === 'under';
-      const wide = (c.span || 0) + 2.4, alongZ = c.ax === 'z';
-      const mesh = new THREE.Mesh(under ? new THREE.BoxGeometry(alongZ ? wide : 2.4, 0.7, alongZ ? 2.4 : wide) : new THREE.BoxGeometry(2, 0.7, Math.min(9, 2 + c.n * 0.9)), under ? cm : dm);
-      mesh.position.set(c.x, under ? yU - 0.35 : H + 0.35, c.z);
-      if (!under) mesh.scale.set(1, 1, 1);
-      clipGroup.add(mesh);
+      if (!under) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, Math.min(9, 2 + c.n * 0.9)), dm);
+        mesh.position.set(c.x, H + 0.35, c.z); clipGroup.add(mesh); continue;
+      }
+      // holders laid side by side across the run, each as wide as its slots
+      const alongZ = c.ax === 'z', pch = LANE.pitch, gap = 0.6;
+      const widths = c.holders.map(z => z * pch + 1), total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
+      let at = (alongZ ? c.x : c.z) - total / 2;
+      for (const [i, w] of widths.entries()) {
+        const mid = at + w / 2;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(alongZ ? w : 2.4, 0.7, alongZ ? 2.4 : w), cm);
+        mesh.position.set(alongZ ? mid : c.x, yU - 0.35, alongZ ? c.z : mid); clipGroup.add(mesh);
+        for (let k = 1; k < c.holders[i]; k++) { // slot dividers
+          const r = new THREE.Mesh(new THREE.BoxGeometry(alongZ ? 0.25 : 2.4, 1.3, alongZ ? 2.4 : 0.25), dm);
+          const o = at + 0.5 + k * pch;
+          r.position.set(alongZ ? o : c.x, yU - 0.65, alongZ ? c.z : o); clipGroup.add(r);
+        }
+        at += w + gap;
+      }
     }
     for (const s of SLEEVES) {
       const h = s.y1 - s.y0;
@@ -1173,7 +1206,7 @@ function renderScore() {
   $('#scoreSec').innerHTML = `<h3>Cleanliness · ${mode === 'after' ? 'managed' : 'messy'}</h3>
   <div class="score"><div class="ring">${ringSVG(S.score, col)}<div class="v"><b>${S.score}</b><small>grade ${grade(S.score)}</small></div></div>
     <div><div class="ba">Before <b style="color:var(--bad)">${b}</b> → After <b style="color:var(--accent)">${a}</b></div>
-    <div class="ba" style="margin-top:4px">${RES.length} cables, ${CLIPS.length} clip spots, ${SLEEVES.length} sleeve${SLEEVES.length === 1 ? '' : 's'}</div>
+    <div class="ba" style="margin-top:4px">${RES.length} cables, ${Object.values(holderCounts(CLIPS.filter(c => c.surf === 'under'))).reduce((a, b) => a + b, 0)} holders, ${SLEEVES.length} sleeve${SLEEVES.length === 1 ? '' : 's'}</div>
     <div class="ba" style="margin-top:4px">Press <b>B</b> to flip between messy and managed.</div></div></div>
   <div class="metrics">
     <span>Visible on desk top</span><span>${fmt(S.desk)}</span>
@@ -1222,7 +1255,8 @@ function planRecs() {
   for (const R of RES.filter(R => !R.managed)) recs.push({ lv: 'mid', t: `${R.a.name} → ${R.b.name} is left unmanaged`, p: 'Set its route to Auto to tuck it under the desk.' });
   for (const s of SLEEVES) recs.push({ lv: 'ok', t: `Sleeve the ${s.n > 1 ? s.n + ' cables' : 'cable'} going down to the floor`, p: `It drops ${xL(s.x)} from the left and ${zB(s.z)} from the back. Use about ${fmt(Math.ceil((s.y1 - s.y0) / 10) * 10 + 10, true)} of braided sleeve or a vertical cable spine.` });
   const under = CLIPS.filter(c => c.surf === 'under'), top = CLIPS.filter(c => c.surf === 'desk');
-  if (under.length) recs.push({ lv: 'ok', t: `${under.length} adhesive clips under the desk`, p: 'They are the orange marks in the Under view. Positions are in the table below. Clean the surface with alcohol before sticking them.' });
+  if (under.length) { const hc = holderCounts(under), tot = Object.values(hc).reduce((a, b) => a + b, 0);
+    recs.push({ lv: 'ok', t: `${tot} cable holders under the desk: ${holderText(hc)}`, p: 'They are the orange marks in the Under view, with one slot per cable. Each position and its holder size are in the table below. Clean the surface with alcohol before sticking them.' }); }
   if (top.length) recs.push({ lv: 'ok', t: `${top.length} small clips on the desk top`, p: 'They keep the short visible runs straight against the desk.' });
   if (!recs.length && RES.length) recs.push({ lv: 'ok', t: 'Looks clean', p: 'Nothing left to fix. Check the Under view to see the finished run.' });
   return recs;
@@ -1236,13 +1270,14 @@ function renderPlan() {
   const sleeveLen = SLEEVES.reduce((s, x) => s + Math.ceil((x.y1 - x.y0) / 10) * 10 + 10, 0);
   const laneLen = RES.length ? Math.max(0, ...RES.filter(R => R.managed).map(R => R.clean.pts.reduce((s, p, i, a) => s + (i && R.clean.tags[i - 1] === 'lane' ? p.distanceTo(a[i - 1]) : 0), 0))) : 0;
   const ties = Math.ceil(laneLen / 30) + SLEEVES.length * 2;
-  const clipRows = (list, w) => list.map((c, i) => `<tr><td>${i + 1}</td><td class="n">${xL(c.x)}</td><td class="n">${zB(c.z)}</td><td class="n">${c.n}</td>${w ? `<td class="n">${fmt(Math.ceil(c.span + 2), true)}</td>` : ''}</tr>`).join('');
+  const clipRows = (list, w) => list.map((c, i) => `<tr><td>${i + 1}</td><td class="n">${xL(c.x)}</td><td class="n">${zB(c.z)}</td><td class="n">${c.n}</td>${w ? `<td class="n">${c.holders.join(' + ')}</td>` : ''}</tr>`).join('');
   $('#planSec').innerHTML = `<h3>Install plan</h3>
    ${recs.map(r => `<div class="rec ${r.lv}"><b>${esc(r.t)}</b><p>${esc(r.p)}</p>${r.act ? `<button class="small primary" data-rec="${r.act[0]}" data-arg='${esc(JSON.stringify(r.act[2] || {}))}'>${r.act[1]}</button>` : ''}</div>`).join('') || '<div class="empty">Add devices and cables to get a plan.</div>'}
-   ${under.length ? `<details open><summary>Under-desk holder positions (${under.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th><th class="n" title="How wide the holder must be to take the whole bundle">Width</th></tr>${clipRows(under, true)}</table></details>` : ''}
+   ${under.length ? `<details open><summary>Under-desk holder positions (${under.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th><th class="n" title="Holder size (cable slots). 3 cables use a 4-slot holder; big bundles use two holders side by side">Holder</th></tr>${clipRows(under, true)}</table></details>` : ''}
    ${top.length ? `<details><summary>Desk-top clip positions (${top.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th></tr>${clipRows(top)}</table></details>` : ''}
    ${RES.length ? `<details><summary>Shopping list</summary><table>
-     <tr><td>Adhesive cable clips</td><td class="n">${Math.ceil(CLIPS.length * 1.25)} pcs</td></tr>
+     ${(() => { const hc = holderCounts(under); return Object.keys(hc).map(Number).sort((a, b) => a - b).map(z => `<tr><td>${z}-cable holder (adhesive)</td><td class="n">${hc[z]} pcs</td></tr>`).join(''); })()}
+     ${top.length ? `<tr><td>Small desk-top clips</td><td class="n">${top.length} pcs</td></tr>` : ''}
      ${tray ? `<tr><td>Cable tray (in plan)</td><td class="n">${fmt(tray.w, true)}</td></tr>` : ''}
      ${sleeveLen ? `<tr><td>Braided sleeve / spine</td><td class="n">${fmt(sleeveLen, true)}</td></tr>` : ''}
      <tr><td>Velcro ties</td><td class="n">${ties} pcs</td></tr>
@@ -1509,10 +1544,12 @@ function autoArrange() {
     p.rot = 0; p.x = (Math.min(...xs) + Math.max(...xs)) / 2; p.z = kb[0].z; clampDev(p);
   });
 
+  state.ui.clips = true;
   histKey = 'arrange'; refresh({ devices: true });
+  const hc = holderText(holderCounts(CLIPS.filter(c => c.surf === 'under')));
   const squeezed = spk.some(s => s.z > z0 + s.d / 2 + 15);
   flash(squeezed ? 'Arranged. No room beside the screens, so the speakers moved forward (try a wider desk or floor stands). Ctrl+Z to undo'
-                 : 'Desk arranged. Ctrl+Z to undo');
+                 : `Desk arranged${hc ? '. Holders: ' + hc : ''}. Ctrl+Z to undo`);
 }
 function cycleSel(dir) {
   const list = state.devices; if (!list.length) return;

@@ -47,7 +47,7 @@ The inspector also has **Name**, **W / H / D** size, a **Needs a power cable** c
 - Low boxes like the dock or audio interface go under the screens, next to the stand.
 - Anything else goes to the nearest free spot toward the back corners, and the desk mat is centred under the keyboard and mouse.
 
-Only desk-top items move, and locked items stay where they are. Ctrl+Z undoes it.
+It also turns on the holder markers and shows how many holders of each size the new layout needs. Only desk-top items move, and locked items stay where they are. Ctrl+Z undoes it.
 
 **Locking:** click **🔓 Lock** in the inspector or press **Shift+L** to pin a device in place. A locked device can't be dragged, nudged, rotated or moved with the sliders, and Auto-arrange leaves it alone. Locked items show 🔒 in the list and on their label. Auto-arrange works around them, and when you lock one monitor or speaker on one side, it puts the unlocked one in the mirror spot so the setup stays symmetric. Click **🔒 Locked** or press Shift+L again to unlock.
 
@@ -92,10 +92,11 @@ The panel lists each of these lengths, the total cable length, and the number of
 ## Install plan
 
 - **Recommendations**, some with a button that applies them: mount the power strip under the desk (**Move strip under desk** / **Add under-desk strip**), add a cable tray of a given length (**Add this tray**), add a grommet at a given spot (**Add grommet here**). It also warns about a strip with too few sockets, long runs on the desk top or floor, cables hanging in view, and unmanaged cables, and tells you where sleeves go.
-- **Under-desk holder positions:** a table of each holder's distance from the left edge and from the back edge, how many cables it holds, and how wide it must be. Cables that run side by side share one holder.
+- **Cable holders:** under the desk, cables that run side by side share one adhesive holder with one slot per cable. Holders come in **1-, 2-, 4- and 6-cable** sizes. A bundle gets the smallest one that fits (3 cables use a 4-slot holder with a spare slot), and bundles over 6 cables use two holders side by side. The plan totals them, for example "5× 1-cable, 3× 2-cable, 2× 4-cable".
+- **Under-desk holder positions:** a table of each holder's distance from the left edge and from the back edge, how many cables pass through it, and the holder size to stick there.
 - **Desk-top clip positions:** the same for the small clips on top of the desk.
 - In the managed routing, cables under the desk never lie on top of one another. Each gets its own slot, one cable thickness apart, so you can count every cable in a run. Cables may cross, but they never overlap. If a tray is too narrow for every cable, a second layer starts, shifted half a slot so each cable stays visible.
-- **Shopping list:** adhesive clips (with 25% spare), the tray, braided sleeve length, and Velcro ties.
+- **Shopping list:** the number of holders of each size, small desk-top clips, the tray, braided sleeve length, and Velcro ties.
 - **Cable lengths to buy:** each cable's route length and the next standard length up, with about 10% slack.
 
 ## Files
