@@ -82,11 +82,25 @@ The panel lists each of these lengths, the total cable length, and the number of
 
 ## Keyboard shortcuts
 
-- **B:** switch between Before and After.
-- **Esc:** leave Connect mode.
-- **Delete** (or Backspace): delete the selected cable or device.
+Press **?** (or click **Shortcuts**) in the app to see this list.
 
-Shortcuts do nothing while you are typing in a field.
+| Action | Keys |
+|---|---|
+| Undo / redo | **Ctrl+Z** / **Ctrl+Y** or **Ctrl+Shift+Z** (also the Undo/Redo buttons) |
+| Copy, cut, paste a device | **Ctrl+C**, **Ctrl+X**, **Ctrl+V** |
+| Duplicate the selected device | **Ctrl+D** |
+| Delete the selected cable or device | **Delete** or **Backspace** |
+| Deselect, leave Connect mode, close help | **Esc** |
+| Move the selected device 1 cm / 10 cm | **Arrow keys** / **Shift+Arrow keys** (up = toward the back) |
+| Rotate the selected device 15° | **R** / **Shift+R** |
+| Select the next / previous device | **Tab** / **Shift+Tab** (when the 3D view has focus) |
+| Before / After | **B** |
+| Views: 3D, Chair, Top, Under, Back | **1** to **5** |
+| Connect mode, Auto power | **C**, **P** |
+| X-ray, Labels, Clips | **X**, **L**, **K** |
+| Export / import the setup | **Ctrl+S** / **Ctrl+O** |
+
+Undo covers every change to the desk, devices and cables (up to 150 steps), including New, Load example and Import. Repeated arrow-key moves or rotations within a second count as one step. View settings (Before/After, camera, units, toggles) are not part of undo. Shortcuts are ignored while you are typing in a text or number field.
 
 ## Typical workflow for real under-desk routing
 

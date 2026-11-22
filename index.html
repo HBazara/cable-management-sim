@@ -94,6 +94,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 #hint .pill{pointer-events:auto;background:#0b0e12d9;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--muted);font-size:12px}
 #hint .pill.act{color:#06140d;background:var(--accent);border-color:var(--accent);font-weight:600}
 #tip{position:absolute;pointer-events:none;background:#0b0e12ee;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;display:none;white-space:nowrap;z-index:5}
+button:disabled{opacity:.4;cursor:default}
+button:disabled:hover{border-color:var(--line)}
+#help{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#help[hidden]{display:none}
+#help .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;max-width:640px;width:100%;max-height:90vh;overflow:auto}
+#help .cols{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
+#help h4{margin:12px 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);grid-column:1/-1}
+#help .k{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
+kbd{font:12px ui-monospace,Consolas,monospace;background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;white-space:nowrap}
+@media (max-width:600px){#help .cols{grid-template-columns:1fr}}
 #modeBadge{position:absolute;top:12px;left:12px;background:#0b0e12d9;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:600}
 #modeBadge.before{color:var(--bad)} #modeBadge.after{color:var(--accent)}
 .empty{color:var(--muted);font-size:12px;padding:6px 0}
@@ -111,6 +121,10 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 <body>
 <header id="top">
   <div class="brand">Cable<span>Sim</span></div>
+  <div class="seg">
+    <button id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+    <button id="redoBtn" title="Redo (Ctrl+Y or Ctrl+Shift+Z)" disabled>↷ Redo</button>
+  </div>
   <div class="seg" id="modeSeg" title="B toggles">
     <button data-mode="before">Before (messy)</button>
     <button data-mode="after">After (managed)</button>
@@ -128,6 +142,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   <button id="codedBtn" title="Color cables by type">Color-code</button>
   <div class="seg" id="unitSeg"><button data-u="cm">cm</button><button data-u="in">in</button></div>
   <div class="sp"></div>
+  <button id="helpBtn" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
   <button id="exampleBtn">Load example</button>
   <button id="newBtn">New</button>
   <button id="exportBtn">Export</button>
@@ -147,6 +162,40 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   <div id="tip"></div>
   <div id="hint"><span class="pill" id="hintText">Drag a device to move it · drag empty space to orbit · right-drag to pan · scroll to zoom</span></div>
 </main>
+
+<div id="help" hidden>
+  <div class="card" role="dialog" aria-label="Keyboard shortcuts">
+    <h3>Keyboard shortcuts <span class="sp"></span><button class="small" data-close>Close</button></h3>
+    <div class="cols">
+      <h4>Edit</h4>
+      <div class="k"><span>Undo</span><kbd>Ctrl+Z</kbd></div>
+      <div class="k"><span>Redo</span><span><kbd>Ctrl+Y</kbd> <kbd>Ctrl+Shift+Z</kbd></span></div>
+      <div class="k"><span>Copy device</span><kbd>Ctrl+C</kbd></div>
+      <div class="k"><span>Cut device</span><kbd>Ctrl+X</kbd></div>
+      <div class="k"><span>Paste device</span><kbd>Ctrl+V</kbd></div>
+      <div class="k"><span>Duplicate device</span><kbd>Ctrl+D</kbd></div>
+      <div class="k"><span>Delete selected</span><span><kbd>Del</kbd> <kbd>Backspace</kbd></span></div>
+      <div class="k"><span>Deselect / cancel</span><kbd>Esc</kbd></div>
+      <h4>Selected device</h4>
+      <div class="k"><span>Move 1 cm</span><kbd>← → ↑ ↓</kbd></div>
+      <div class="k"><span>Move 10 cm</span><kbd>Shift+arrows</kbd></div>
+      <div class="k"><span>Rotate 15°</span><span><kbd>R</kbd> <kbd>Shift+R</kbd></span></div>
+      <div class="k"><span>Next / previous device</span><span><kbd>Tab</kbd> <kbd>Shift+Tab</kbd></span></div>
+      <h4>View &amp; tools</h4>
+      <div class="k"><span>Before / After</span><kbd>B</kbd></div>
+      <div class="k"><span>3D · Chair · Top · Under · Back</span><kbd>1–5</kbd></div>
+      <div class="k"><span>Connect mode</span><kbd>C</kbd></div>
+      <div class="k"><span>Auto power</span><kbd>P</kbd></div>
+      <div class="k"><span>X-ray desk</span><kbd>X</kbd></div>
+      <div class="k"><span>Labels</span><kbd>L</kbd></div>
+      <div class="k"><span>Clips</span><kbd>K</kbd></div>
+      <div class="k"><span>This help</span><kbd>?</kbd></div>
+      <h4>File</h4>
+      <div class="k"><span>Export setup</span><kbd>Ctrl+S</kbd></div>
+      <div class="k"><span>Import setup</span><kbd>Ctrl+O</kbd></div>
+    </div>
+  </div>
+</div>
 
 <aside id="right">
   <section id="scoreSec"></section>
@@ -1104,7 +1153,7 @@ function renderTop() {
   $('#hintText').className = 'pill' + (connect.on ? ' act' : '');
   $('#hintText').textContent = connect.on
     ? (connect.first ? `Now click the device to connect ${devById(connect.first)?.name ?? ''} to (Esc to stop)` : 'Connect mode: click the first device')
-    : 'Drag a device to move it · drag empty space to orbit · right-drag to pan · scroll to zoom';
+    : 'Drag a device to move it · drag empty space to orbit · right-drag to pan · scroll to zoom · ? for shortcuts';
 }
 
 /* ================= update orchestration ================= */
@@ -1116,8 +1165,103 @@ function refresh({ devices = false, desk = false, panels = true } = {}) {
   renderCables();
   renderScore();
   if (panels) { renderDevList(); renderInspector(); renderCableForm(); renderCables_(); renderPlan(); }
+  commitHistory(histKey); histKey = null;
   renderTop();
   save();
+}
+
+/* ================= undo / redo ================= */
+// Every refresh() commits a snapshot of the setup (desk, devices, cables; not view settings).
+// Rapid repeats of the same action (e.g. holding an arrow key) merge into one undo step.
+const hist = { undo: [], redo: [], last: null, key: null, t: 0 };
+let histKey = null;
+const snap = () => JSON.stringify({ desk: state.desk, devices: state.devices, cables: state.cables });
+function commitHistory(key) {
+  const cur = snap();
+  if (hist.last === null) { hist.last = cur; updateUndoBtns(); return; }
+  if (cur === hist.last) return;
+  if (key === '__restore') { hist.last = cur; return; }
+  const now = performance.now();
+  if (!(key && key === hist.key && now - hist.t < 1000)) {
+    hist.undo.push(hist.last);
+    if (hist.undo.length > 150) hist.undo.shift();
+  }
+  hist.redo = []; hist.last = cur; hist.key = key || null; hist.t = now;
+  updateUndoBtns();
+}
+function restore(json) {
+  const s = JSON.parse(json);
+  state.desk = s.desk; state.devices = s.devices; state.cables = s.cables;
+  hist.last = json; hist.key = null;
+  if (sel.dev && !devById(sel.dev)) sel.dev = null;
+  if (sel.cable && !cabById(sel.cable)) sel.cable = null;
+  if (connect.first && !devById(connect.first)) connect.first = null;
+  histKey = '__restore';
+  refresh({ desk: true, devices: true });
+  updateUndoBtns();
+}
+function undo() {
+  if (!hist.undo.length) { flash('Nothing to undo'); return; }
+  hist.redo.push(hist.last); restore(hist.undo.pop()); flash('Undone');
+}
+function redo() {
+  if (!hist.redo.length) { flash('Nothing to redo'); return; }
+  hist.undo.push(hist.last); restore(hist.redo.pop()); flash('Redone');
+}
+function updateUndoBtns() {
+  const u = $('#undoBtn'), r = $('#redoBtn'); if (!u) return;
+  u.disabled = !hist.undo.length; r.disabled = !hist.redo.length;
+}
+
+/* ================= clipboard ================= */
+let clip = null, pasteN = 0;
+function copySel() {
+  const d = devById(sel.dev);
+  if (!d) { flash(sel.cable ? 'Only devices can be copied' : 'Select a device first'); return false; }
+  clip = JSON.parse(JSON.stringify(d)); pasteN = 0;
+  flash(`Copied ${d.name}`);
+  return true;
+}
+function pasteDev(src, offset) {
+  const base = src.name.replace(/ copy( \d+)?$/, '') + ' copy', names = new Set(state.devices.map(x => x.name));
+  let name = base; for (let i = 2; names.has(name); i++) name = base + ' ' + i;
+  const d = { ...JSON.parse(JSON.stringify(src)), id: uid(), name };
+  d.x += offset;
+  state.devices.push(d); clampDev(d);
+  sel = { dev: d.id, cable: null };
+  refresh({ devices: true });
+}
+function paste() {
+  if (!clip) { flash('Nothing to paste. Select a device and press Ctrl+C'); return; }
+  pasteN++; pasteDev(clip, 10 * pasteN);
+}
+function duplicateSel() {
+  const d = devById(sel.dev);
+  if (!d) { flash('Select a device first'); return; }
+  pasteDev(d, 10);
+}
+function deleteSel() {
+  if (sel.cable) { state.cables = state.cables.filter(c => c.id !== sel.cable); sel.cable = null; refresh(); }
+  else if (sel.dev) deleteDevice(sel.dev);
+}
+function nudgeSel(dx, dz) {
+  const d = devById(sel.dev); if (!d) return;
+  d.x += dx; if (d.zone !== 'wall') d.z += dz;
+  clampDev(d); histKey = 'nudge:' + d.id; refresh({ devices: true });
+}
+function rotateSel(step) {
+  const d = devById(sel.dev); if (!d) return;
+  if (TYPES[d.type].noRot || d.zone === 'wall') { flash(`${TYPES[d.type].label} can't be rotated`); return; }
+  d.rot = ((d.rot + step + 540) % 360) - 180;
+  clampDev(d); histKey = 'rot:' + d.id; refresh({ devices: true });
+}
+function cycleSel(dir) {
+  const list = state.devices; if (!list.length) return;
+  const i = list.findIndex(d => d.id === sel.dev);
+  selectDev(list[(i + dir + list.length) % list.length].id);
+}
+function toggleHelp(force) {
+  const h = $('#help'); h.hidden = force != null ? !force : !h.hidden;
 }
 function liveRefresh() {
   if (pending) return;
@@ -1228,7 +1372,7 @@ $('#deskSec').addEventListener('change', e => {
 $('#devList').addEventListener('click', e => { const it = e.target.closest('[data-dev]'); if (it) selectDev(it.dataset.dev); });
 $('#inspector').addEventListener('input', e => {
   const k = e.target.dataset.p; const dev = devById(sel.dev); if (!k || !dev) return;
-  if (k === 'name') { dev.name = e.target.value; const lb = devLabels.get(dev.id); if (lb) lb.element.textContent = dev.name; save(); return; }
+  if (k === 'name') { dev.name = e.target.value; const lb = devLabels.get(dev.id); if (lb) lb.element.textContent = dev.name; commitHistory('name:' + dev.id); save(); return; }
   if (k === 'zone' || k === 'power') return;
   dev[k] = +e.target.value;
   if (['w', 'h', 'd'].includes(k)) { if (!(dev[k] > 0)) return; return; }
@@ -1251,7 +1395,7 @@ $('#inspector').addEventListener('change', e => {
 $('#inspector').addEventListener('click', e => {
   const a = e.target.closest('[data-act]')?.dataset.act; const dev = devById(sel.dev); if (!a || !dev) return;
   if (a === 'del') deleteDevice(dev.id);
-  if (a === 'dup') { const c = { ...dev, id: uid(), name: dev.name + ' copy', x: dev.x + 10 }; state.devices.push(c); sel.dev = c.id; refresh({ devices: true }); }
+  if (a === 'dup') duplicateSel();
 });
 $('#cAdd').addEventListener('click', () => {
   const a = $('#cFrom').value, b = $('#cTo').value;
@@ -1302,14 +1446,54 @@ $('#importFile').addEventListener('change', async e => {
   e.target.value = '';
 });
 addEventListener('keydown', e => {
-  if (e.target.matches('input,select,textarea')) return;
-  if (e.key === 'Escape') { connect = { on: false, first: null }; updateSelHelpers(); renderTop(); }
-  if (e.key === 'b' || e.key === 'B') { state.ui.mode = state.ui.mode === 'after' ? 'before' : 'after'; refresh({ panels: false }); }
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (sel.cable) { state.cables = state.cables.filter(c => c.id !== sel.cable); sel.cable = null; refresh(); }
-    else if (sel.dev) deleteDevice(sel.dev);
+  const ctrl = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+  // let text fields keep their own typing/undo; sliders/selects keep their arrow keys
+  if (e.target.matches('input:not([type=range]):not([type=checkbox]),textarea')) {
+    if (e.key === 'Escape') e.target.blur();
+    return;
   }
+  if (e.target.matches('select,input[type=range],input[type=checkbox]') && !ctrl && e.key !== 'Escape') return;
+  const run = fn => { e.preventDefault(); fn(); };
+  if (ctrl) {
+    if (k === 'z' && !e.shiftKey) return run(undo);
+    if (k === 'y' || (k === 'z' && e.shiftKey)) return run(redo);
+    if (k === 'c') return run(copySel);
+    if (k === 'x') return run(() => { if (copySel()) deleteSel(); });
+    if (k === 'v') return run(paste);
+    if (k === 'd') return run(duplicateSel);
+    if (k === 's') return run(() => $('#exportBtn').click());
+    if (k === 'o') return run(() => $('#importBtn').click());
+    return;
+  }
+  if (e.altKey) return;
+  const step = e.shiftKey ? 10 : 1;
+  switch (e.key) {
+    case 'Escape':
+      if (!$('#help').hidden) toggleHelp(false);
+      else if (connect.on) { connect = { on: false, first: null }; updateSelHelpers(); renderTop(); }
+      else if (sel.dev || sel.cable) { sel = { dev: null, cable: null }; devLabels.forEach(lb => lb.element.classList.remove('sel')); cableMeshes.forEach((_, id) => styleCable(id)); updateSelHelpers(); renderDevList(); renderInspector(); renderCables_(); }
+      return;
+    case 'Delete': case 'Backspace': return run(deleteSel);
+    case 'ArrowLeft': return run(() => nudgeSel(-step, 0));
+    case 'ArrowRight': return run(() => nudgeSel(step, 0));
+    case 'ArrowUp': return run(() => nudgeSel(0, -step));
+    case 'ArrowDown': return run(() => nudgeSel(0, step));
+    case 'Tab': if (!e.target.matches('body,canvas')) return; return run(() => cycleSel(e.shiftKey ? -1 : 1));
+    case '?': return run(() => toggleHelp());
+    case '1': case '2': case '3': case '4': case '5': return run(() => setView(['persp', 'front', 'top', 'under', 'back'][+e.key - 1]));
+  }
+  if (k === 'b') { state.ui.mode = state.ui.mode === 'after' ? 'before' : 'after'; refresh({ panels: false }); }
+  else if (k === 'r') rotateSel(e.shiftKey ? -15 : 15);
+  else if (k === 'c') $('#connectBtn').click();
+  else if (k === 'x') $('#xrayBtn').click();
+  else if (k === 'l') $('#labelsBtn').click();
+  else if (k === 'k') $('#clipsBtn').click();
+  else if (k === 'p') autoPower();
 });
+$('#undoBtn').addEventListener('click', undo);
+$('#redoBtn').addEventListener('click', redo);
+$('#helpBtn').addEventListener('click', () => toggleHelp());
+$('#help').addEventListener('click', e => { if (e.target.id === 'help' || e.target.closest('[data-close]')) toggleHelp(false); });
 
 function selectDev(id) {
   sel = { dev: id, cable: null };
