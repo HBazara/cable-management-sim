@@ -1,0 +1,1424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cable Management Simulator</title>
+<style>
+:root{
+  --bg:#0f1216; --panel:#151a21; --panel2:#1b222b; --line:#262f3a; --text:#e6e9ee; --muted:#8a94a3;
+  --accent:#3ecf8e; --accent2:#4aa3ff; --warn:#f5a524; --bad:#f2555a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  display:grid;grid-template-rows:54px minmax(0,1fr);grid-template-columns:290px minmax(0,1fr) 350px;
+  grid-template-areas:"top top top" "left view right";overflow:hidden}
+#top{grid-area:top;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto}
+#top .brand{font-weight:700;font-size:15px;white-space:nowrap;margin-right:6px}
+#top .brand span{color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 10px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#06140d;font-weight:600}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#3a4656}
+button.on{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);color:#06140d;border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad)}
+button.small{padding:3px 8px;font-size:12px}
+.sp{flex:1}
+aside{overflow-y:auto;background:var(--panel);min-height:0}
+#left{grid-area:left;border-right:1px solid var(--line)}
+#right{grid-area:right;border-left:1px solid var(--line)}
+section{padding:14px;border-bottom:1px solid var(--line)}
+h3{margin:0 0 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}
+h3 .sp{flex:1}
+label.f{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;color:var(--muted)}
+label.f > span:first-child{flex:0 0 auto}
+input,select{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+input[type=number]{width:70px}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent);padding:0}
+.rv{width:58px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pal button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:11px;white-space:normal;text-align:center;line-height:1.2}
+.pal button .ic{font-size:18px}
+.list .it{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.list .it:hover{background:var(--panel2)}
+.list .it.sel{border-color:var(--accent);background:#173026}
+.list .it .z{margin-left:auto;color:var(--muted);font-size:11px}
+.cable{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer}
+.cable.sel{border-color:var(--accent)}
+.cable .r1{display:flex;align-items:center;gap:8px}
+.cable .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cable .meta{color:var(--muted);font-size:12px;margin:3px 0 6px}
+.cable .r2{display:flex;gap:6px}
+.cable .r2 select{flex:1;min-width:0;font-size:12px}
+.sw{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid #fff3}
+.x{background:none;border:0;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
+.x:hover{color:var(--bad)}
+.score{display:flex;gap:14px;align-items:center}
+.ring{width:92px;height:92px;flex-shrink:0;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring .v{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .v b{font-size:26px;line-height:1}
+.ring .v small{color:var(--muted);font-size:11px}
+.ba{font-size:12px;color:var(--muted)}
+.ba b{color:var(--text)}
+.metrics{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin-top:10px;font-size:12px}
+.metrics span:nth-child(odd){color:var(--muted)}
+.metrics span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.rec{border-left:3px solid var(--accent2);background:var(--panel2);border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.rec.high{border-left-color:var(--warn)}
+.rec.ok{border-left-color:var(--accent)}
+.rec b{display:block;margin-bottom:2px}
+.rec p{margin:0 0 6px;color:var(--muted)}
+.rec p:last-child{margin-bottom:0}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--text);font-weight:600;padding:4px 0}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+td,th{padding:4px 4px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:500}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 10px}
+.form select{min-width:0}
+#view{grid-area:view;position:relative;min-height:0;background:#151a21}
+#view canvas{display:block}
+.labels{position:absolute;inset:0;pointer-events:none}
+.lbl{font-size:11px;padding:2px 6px;border-radius:5px;background:#0b0e12cc;color:#dfe5ec;border:1px solid #ffffff1a;white-space:nowrap;transform:translateY(-6px)}
+.lbl.sel{border-color:var(--accent);color:var(--accent)}
+#hint{position:absolute;left:12px;bottom:12px;right:12px;display:flex;gap:10px;align-items:center;pointer-events:none}
+#hint .pill{pointer-events:auto;background:#0b0e12d9;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--muted);font-size:12px}
+#hint .pill.act{color:#06140d;background:var(--accent);border-color:var(--accent);font-weight:600}
+#tip{position:absolute;pointer-events:none;background:#0b0e12ee;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;display:none;white-space:nowrap;z-index:5}
+#modeBadge{position:absolute;top:12px;left:12px;background:#0b0e12d9;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:600}
+#modeBadge.before{color:var(--bad)} #modeBadge.after{color:var(--accent)}
+.empty{color:var(--muted);font-size:12px;padding:6px 0}
+@media (max-width:1050px){
+  body{overflow:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 62vh auto auto;grid-template-areas:"top" "view" "right" "left"}
+  #top{flex-wrap:wrap;padding:8px 16px;gap:6px}
+  aside{overflow:visible}
+  section{padding:14px 16px}
+}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<header id="top">
+  <div class="brand">Cable<span>Sim</span></div>
+  <div class="seg" id="modeSeg" title="B toggles">
+    <button data-mode="before">Before (messy)</button>
+    <button data-mode="after">After (managed)</button>
+  </div>
+  <div class="seg" id="viewSeg">
+    <button data-view="persp">3D</button>
+    <button data-view="front">Chair</button>
+    <button data-view="top">Top</button>
+    <button data-view="under">Under</button>
+    <button data-view="back">Back</button>
+  </div>
+  <button id="xrayBtn" title="See-through desk top">X-ray</button>
+  <button id="labelsBtn">Labels</button>
+  <button id="clipsBtn">Clips</button>
+  <button id="codedBtn" title="Color cables by type">Color-code</button>
+  <div class="seg" id="unitSeg"><button data-u="cm">cm</button><button data-u="in">in</button></div>
+  <div class="sp"></div>
+  <button id="exampleBtn">Load example</button>
+  <button id="newBtn">New</button>
+  <button id="exportBtn">Export</button>
+  <button id="importBtn">Import</button>
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+</header>
+
+<aside id="left">
+  <section id="deskSec"></section>
+  <section><h3>Add device</h3><div class="pal" id="palette"></div></section>
+  <section><h3>Devices <span class="sp"></span><span class="muted" id="devCount"></span></h3><div class="list" id="devList"></div></section>
+  <section id="inspector"></section>
+</aside>
+
+<main id="view">
+  <div id="modeBadge"></div>
+  <div id="tip"></div>
+  <div id="hint"><span class="pill" id="hintText">Drag a device to move it · drag empty space to orbit · right-drag to pan · scroll to zoom</span></div>
+</main>
+
+<aside id="right">
+  <section id="scoreSec"></section>
+  <section>
+    <h3>Cables <span class="sp"></span><span class="muted" id="cabCount"></span></h3>
+    <div class="row">
+      <button id="connectBtn">Connect mode</button>
+      <button id="autoPowerBtn" title="Give every device that needs power a cable to the nearest power strip">Auto power</button>
+    </div>
+    <div class="form">
+      <select id="cFrom"></select><select id="cTo"></select>
+      <select id="cKind"></select><button id="cAdd" class="primary">Add cable</button>
+    </div>
+    <div id="cableList"></div>
+  </section>
+  <section id="planSec"></section>
+</aside>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9);
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const DEG = Math.PI / 180;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ================= catalog ================= */
+const KINDS = {
+  power:       { label: 'Power',        color: '#17191c', coded: '#ff5d5d', r: 0.42 },
+  displayport: { label: 'DisplayPort',  color: '#2e333b', coded: '#4aa3ff', r: 0.38 },
+  hdmi:        { label: 'HDMI',         color: '#3a3a3a', coded: '#8b7bff', r: 0.40 },
+  usb:         { label: 'USB-A',        color: '#5b6168', coded: '#3ecf8e', r: 0.25 },
+  usbc:        { label: 'USB-C',        color: '#d9dbde', coded: '#2dd4bf', r: 0.22 },
+  audio:       { label: '3.5mm audio',  color: '#cfcfcf', coded: '#f5a524', r: 0.17 },
+  rca:         { label: 'RCA',          color: '#b83a3a', coded: '#f472b6', r: 0.22 },
+  speaker:     { label: 'Speaker wire', color: '#b8402f', coded: '#ff8a3d', r: 0.18 },
+  ethernet:    { label: 'Ethernet',     color: '#2f73d6', coded: '#60a5fa', r: 0.30 },
+  xlr:         { label: 'XLR',          color: '#202020', coded: '#e879f9', r: 0.33 },
+};
+const ZONE_LABEL = { desk: 'On desk', under: 'Under desk', floor: 'Floor', wall: 'Wall' };
+
+const TYPES = {
+  monitor:    { label: 'Monitor', ic: '🖥️', w: 61, h: 35, d: 22, zones: ['desk'], power: true, port: (w, h, d) => [0, 10 + h * 0.28, -d / 2 + 3.6], tall: (w, h) => 10 + h, spacing: 1.6 },
+  pc:         { label: 'PC tower', ic: '🗄️', w: 21, h: 46, d: 45, zones: ['floor', 'desk', 'under'], power: true, port: (w, h, d) => [-w * 0.15, h * 0.72, -d / 2 - 0.4], spacing: 1.8 },
+  laptop:     { label: 'Laptop', ic: '💻', w: 32, h: 1.8, d: 22, zones: ['desk'], power: true, port: (w, h, d) => [w / 2 + 0.4, 0.9, -d * 0.2], out: [1, 0, 0], spreadAxis: 'z' },
+  keyboard:   { label: 'Keyboard', ic: '⌨️', w: 44, h: 3, d: 14, zones: ['desk'], port: (w, h, d) => [-w * 0.15, h * 0.5, -d / 2 - 0.4] },
+  mouse:      { label: 'Mouse', ic: '🖱️', w: 6.5, h: 4, d: 11, zones: ['desk'], port: (w, h, d) => [0, h * 0.35, -d / 2 - 0.3] },
+  speaker:    { label: 'Speaker', ic: '🔊', w: 15, h: 24, d: 19, zones: ['desk', 'floor'], port: (w, h, d) => [0, h * 0.25, -d / 2 - 0.4] },
+  controller: { label: 'Speaker controller', ic: '🎛️', w: 8, h: 4, d: 8, zones: ['desk'], port: (w, h, d) => [0, 1, -d / 2 - 0.3] },
+  sub:        { label: 'Subwoofer / amp', ic: '📦', w: 30, h: 30, d: 30, zones: ['floor', 'under', 'desk'], power: true, port: (w, h, d) => [0, h * 0.3, -d / 2 - 0.4], spacing: 2 },
+  camera:     { label: 'Webcam', ic: '📷', w: 9, h: 4, d: 5, zones: ['desk'], port: (w, h, d) => [0, h * 0.5, -d / 2 - 0.3] },
+  mic:        { label: 'Microphone', ic: '🎙️', w: 12, h: 26, d: 12, zones: ['desk'], port: (w, h, d) => [0, 0.8, -d / 2 - 0.2] },
+  dac:        { label: 'Audio interface', ic: '🎚️', w: 18, h: 5, d: 13, zones: ['desk', 'under'], port: (w, h, d) => [0, h * 0.5, -d / 2 - 0.3] },
+  dock:       { label: 'USB hub / dock', ic: '🔗', w: 12, h: 2.5, d: 6, zones: ['desk', 'under'], power: true, port: (w, h, d) => [0, h * 0.5, -d / 2 - 0.3] },
+  lamp:       { label: 'Lamp', ic: '💡', w: 16, h: 42, d: 16, zones: ['desk', 'floor'], power: true, port: (w, h, d) => [0, 0.8, -d / 2] },
+  powerstrip: { label: 'Power strip', ic: '🔌', w: 45, h: 4, d: 6.5, zones: ['under', 'floor', 'desk'], port: null },
+  outlet:     { label: 'Wall outlet', ic: '⚡', w: 8, h: 12, d: 1, zones: ['wall'], elev: 30, port: (w, h, d) => [0, h * 0.35, 1.2], out: [0, 0, 1] },
+  tray:       { label: 'Cable tray', ic: '🧺', w: 80, h: 8, d: 12, zones: ['under'], elev: 2, noCable: true, noRot: true },
+  grommet:    { label: 'Desk grommet', ic: '⭕', w: 6, h: 0.5, d: 6, zones: ['desk'], noCable: true, noRot: true },
+  deskpad:    { label: 'Desk mat', ic: '▭', w: 90, h: 0.3, d: 40, zones: ['desk'], noCable: true },
+  custom:     { label: 'Custom box', ic: '⬜', w: 20, h: 10, d: 15, zones: ['desk', 'under', 'floor', 'wall'], port: (w, h, d) => [0, h * 0.5, -d / 2 - 0.3] },
+};
+const tallOf = dev => (TYPES[dev.type].tall ? TYPES[dev.type].tall(dev.w, dev.h, dev.d) : dev.h);
+const needsPower = dev => dev.power ?? !!TYPES[dev.type].power;
+const stripOutlets = dev => Math.max(2, Math.floor((dev.w - 8) / 5.5));
+
+/* ================= state ================= */
+const STORE = 'cablesim-state-v1';
+let state;
+function defaultUI() { return { mode: 'after', units: 'cm', labels: true, clips: true, coded: false, xray: false }; }
+function blank() { return { version: 1, desk: { w: 160, d: 75, h: 75, t: 2.5, wallGap: 4, color: 'oak' }, devices: [], cables: [], ui: defaultUI() }; }
+
+function makeDevice(type, o = {}, s = state) {
+  const t = TYPES[type];
+  const n = s.devices.filter(d => d.type === type).length + 1;
+  const dv = {
+    id: uid(), type, name: t.label + (n > 1 ? ' ' + n : ''), zone: t.zones[0],
+    x: 0, z: 0, elev: t.elev ?? 0, rot: 0, w: t.w, h: t.h, d: t.d, ...o,
+  };
+  if (!('x' in o) || !('z' in o)) {
+    const D = s.desk, z0 = -D.d / 2;
+    const p = { desk: [0, -5], under: [0, z0 + 8], floor: [D.w / 2 - 20, -8], wall: [0, 0] }[dv.zone];
+    if (!('x' in o)) dv.x = p[0] + (Math.random() - 0.5) * 20;
+    if (!('z' in o)) dv.z = p[1];
+  }
+  return dv;
+}
+
+function examplePreset() {
+  const s = blank();
+  const z0 = -s.desk.d / 2;
+  const add = (type, o) => { const d = makeDevice(type, o, s); s.devices.push(d); return d; };
+  const cab = (a, b, kind) => s.cables.push({ id: uid(), from: a.id, to: b.id, kind, route: 'auto' });
+  const outlet = add('outlet', { name: 'Wall outlet', x: -55, z: 0 });
+  const strip = add('powerstrip', { name: 'Power strip', zone: 'floor', x: 0, z: z0 + 8 });
+  const pc = add('pc', { name: 'PC', zone: 'floor', x: 57, z: -12 });
+  const m1 = add('monitor', { name: 'Monitor L', x: -29, z: -21, w: 54, h: 32, rot: 10 });
+  const m2 = add('monitor', { name: 'Monitor R', x: 29, z: -21, w: 54, h: 32, rot: -10 });
+  const cam = add('camera', { name: 'Webcam', x: -29, z: -26.5, elev: 42, rot: 10 });
+  const spL = add('speaker', { name: 'Speaker L', x: -70, z: -20, rot: 14 });
+  const spR = add('speaker', { name: 'Speaker R', x: 70, z: -20, rot: -14 });
+  const ctrl = add('controller', { name: 'Speaker controller', x: 42, z: 12 });
+  const sub = add('sub', { name: 'Speaker under desk', zone: 'floor', x: -42, z: -14 });
+  const mic = add('mic', { name: 'Microphone', x: -52, z: 2 });
+  add('deskpad', { name: 'Desk mat', x: 6, z: 15 });
+  const kb = add('keyboard', { name: 'Keyboard', x: -4, z: 17 });
+  const ms = add('mouse', { name: 'Mouse', x: 32, z: 19 });
+  cab(strip, outlet, 'power'); cab(pc, strip, 'power'); cab(m1, strip, 'power'); cab(m2, strip, 'power'); cab(sub, strip, 'power');
+  cab(m1, pc, 'displayport'); cab(m2, pc, 'displayport');
+  cab(cam, pc, 'usb'); cab(mic, pc, 'usb'); cab(kb, pc, 'usb'); cab(ms, pc, 'usb');
+  cab(spL, sub, 'speaker'); cab(spR, sub, 'speaker'); cab(ctrl, sub, 'audio'); cab(sub, pc, 'audio');
+  return s;
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || !s.desk || !Array.isArray(s.devices)) return null;
+    s.ui = { ...defaultUI(), ...(s.ui || {}) };
+    return s;
+  } catch (e) { return null; }
+}
+let saveT = 0;
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }, 250); }
+
+state = load() || examplePreset();
+
+const devById = id => state.devices.find(d => d.id === id);
+const cabById = id => state.cables.find(c => c.id === id);
+let sel = { dev: null, cable: null };
+let connect = { on: false, first: null };
+
+/* ================= units ================= */
+function fmt(cm, short) {
+  if (state.ui.units === 'in') {
+    const inch = cm / 2.54;
+    if (!short && inch >= 36) return (inch / 12).toFixed(1) + ' ft';
+    return Math.round(inch) + ' in';
+  }
+  if (!short && cm >= 100) return (cm / 100).toFixed(2).replace(/0$/, '') + ' m';
+  return Math.round(cm) + ' cm';
+}
+
+/* ================= three setup ================= */
+const viewEl = $('#view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+viewEl.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.className = 'labels';
+viewEl.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#151a21');
+const camera = new THREE.PerspectiveCamera(42, 1, 1, 5000);
+camera.position.set(170, 165, 215);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 68, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.12;
+controls.minDistance = 30;
+controls.maxDistance = 900;
+
+scene.add(new THREE.HemisphereLight('#e4ecff', '#2b2520', 0.85));
+const sun = new THREE.DirectionalLight('#ffffff', 1.7);
+sun.position.set(120, 270, 170);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -230, right: 230, top: 230, bottom: -230, near: 10, far: 900 });
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const bounce = new THREE.DirectionalLight('#ffe7cf', 0.5);
+bounce.position.set(30, -60, 120);
+scene.add(bounce);
+const fill = new THREE.DirectionalLight('#a8bcff', 0.35);
+fill.position.set(-180, 60, 100);
+scene.add(fill);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: '#2a3038', roughness: 0.95 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+const grid = new THREE.GridHelper(1400, 70, '#3a424d', '#313842');
+grid.position.y = 0.05;
+grid.material.transparent = true; grid.material.opacity = 0.5;
+scene.add(grid);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(1400, 450), new THREE.MeshStandardMaterial({ color: '#343b46', roughness: 0.95 }));
+wall.position.y = 225;
+wall.receiveShadow = true;
+scene.add(wall);
+
+const deskGroup = new THREE.Group(), devGroup = new THREE.Group(), cableGroup = new THREE.Group(), clipGroup = new THREE.Group(), labelGroup = new THREE.Group();
+scene.add(deskGroup, devGroup, cableGroup, clipGroup, labelGroup);
+const selHelper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color('#3ecf8e'));
+selHelper.visible = false;
+scene.add(selHelper);
+const firstHelper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color('#f5a524'));
+firstHelper.visible = false;
+scene.add(firstHelper);
+
+/* ================= materials & primitives ================= */
+const matCache = new Map();
+function M(color, o = {}) {
+  const key = color + JSON.stringify(o);
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({
+    color, roughness: o.r ?? 0.6, metalness: o.m ?? 0.05,
+    emissive: o.e ?? '#000000', emissiveIntensity: o.ei ?? 1,
+    transparent: o.t != null, opacity: o.t ?? 1,
+  }));
+  return matCache.get(key);
+}
+function box(g, w, h, d, mat, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+}
+function cyl(g, r, h, mat, x = 0, y = 0, z = 0, axis = 'y', r2) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, 28), mat);
+  if (axis === 'z') m.rotation.x = Math.PI / 2;
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+}
+
+const BUILD = {
+  monitor(g, w, h, d) {
+    const dark = M('#1d2026', { r: 0.45, m: 0.3 });
+    box(g, Math.min(w * 0.36, 26), 1.2, d, dark, 0, 0.6, 0);
+    box(g, 5, 10 + h * 0.5, 3, dark, 0, (10 + h * 0.5) / 2, -d / 2 + 2.2);
+    box(g, w, h, 2.4, M('#121418', { r: 0.4, m: 0.2 }), 0, 10 + h / 2, -d / 2 + 4.9);
+    box(g, w - 1.4, h - 1.4, 0.2, M('#0d1a2b', { r: 0.2, e: '#16365c', ei: 0.55 }), 0, 10 + h / 2, -d / 2 + 6.15);
+  },
+  pc(g, w, h, d) {
+    box(g, w, h, d, M('#1f2329', { r: 0.4, m: 0.4 }), 0, h / 2, 0);
+    box(g, w * 0.86, h * 0.92, 0.4, M('#2a2f37', { r: 0.5 }), 0, h / 2, d / 2 + 0.2);
+    box(g, 0.3, h * 0.8, d * 0.8, M('#0e2a33', { r: 0.1, t: 0.85, e: '#0d5f6e', ei: 0.6 }), w / 2 + 0.15, h / 2, 0);
+    box(g, 1.2, 0.6, 0.3, M('#3ecf8e', { e: '#3ecf8e' }), 0, h - 4, d / 2 + 0.5);
+  },
+  laptop(g, w, h, d) {
+    const al = M('#9aa1aa', { r: 0.35, m: 0.6 });
+    box(g, w, h, d, al, 0, h / 2, 0);
+    const lid = new THREE.Group();
+    box(lid, w, d * 0.95, 0.6, al, 0, d * 0.475, 0);
+    box(lid, w - 2, d * 0.95 - 2, 0.1, M('#0d1a2b', { e: '#16365c', ei: 0.5 }), 0, d * 0.475, 0.35);
+    lid.position.set(0, h, -d / 2); lid.rotation.x = -0.28; g.add(lid);
+  },
+  keyboard(g, w, h, d) {
+    box(g, w, h * 0.6, d, M('#23272e', { r: 0.6 }), 0, h * 0.3, 0);
+    box(g, w - 2, h * 0.4, d - 2, M('#3b414a', { r: 0.7 }), 0, h * 0.8, 0);
+  },
+  mouse(g, w, h, d) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), M('#2a2e35', { r: 0.4 }));
+    m.scale.set(w / 2, h, d / 2); m.position.y = 0; m.castShadow = true; g.add(m);
+  },
+  speaker(g, w, h, d) {
+    box(g, w, h, d, M('#1b1c1f', { r: 0.7 }), 0, h / 2, 0);
+    cyl(g, w * 0.34, 0.8, M('#3a3d42', { r: 0.4, m: 0.3 }), 0, h * 0.34, d / 2 + 0.3, 'z');
+    cyl(g, w * 0.13, 0.8, M('#55595f', { r: 0.3, m: 0.5 }), 0, h * 0.76, d / 2 + 0.3, 'z');
+  },
+  controller(g, w, h, d) {
+    cyl(g, w / 2, h * 0.45, M('#1d2026', { r: 0.5 }), 0, h * 0.225, 0);
+    cyl(g, w * 0.36, h * 0.6, M('#9aa1aa', { r: 0.25, m: 0.8 }), 0, h * 0.7, 0);
+  },
+  sub(g, w, h, d) {
+    box(g, w, h, d, M('#1b1c1f', { r: 0.75 }), 0, h / 2, 0);
+    cyl(g, Math.min(w, h) * 0.36, 0.8, M('#3a3d42', { r: 0.4, m: 0.3 }), 0, h / 2, d / 2 + 0.3, 'z');
+  },
+  camera(g, w, h, d) {
+    box(g, w, h, d, M('#202328', { r: 0.4 }), 0, h / 2, 0);
+    cyl(g, h * 0.33, 0.6, M('#0a0c10', { r: 0.1, m: 0.6 }), 0, h / 2, d / 2 + 0.3, 'z');
+    box(g, w * 0.4, 0.6, d * 1.6, M('#202328'), 0, 0.3, -d * 0.2);
+  },
+  mic(g, w, h, d) {
+    const dk = M('#1d2026', { r: 0.5, m: 0.3 });
+    cyl(g, w / 2, 1.5, dk, 0, 0.75, 0);
+    cyl(g, 0.6, h * 0.62, M('#6b727c', { m: 0.7, r: 0.3 }), 0, 1.5 + h * 0.31, 0);
+    cyl(g, 2.6, h * 0.36, M('#2b2f36', { r: 0.35, m: 0.4 }), 0, h * 0.8, 0);
+  },
+  dac(g, w, h, d) {
+    box(g, w, h, d, M('#b5282e', { r: 0.4 }), 0, h / 2, 0);
+    cyl(g, h * 0.3, 0.8, M('#d9d9d9', { m: 0.6 }), 0, h / 2, d / 2 + 0.4, 'z');
+  },
+  dock(g, w, h, d) { box(g, w, h, d, M('#7d848d', { r: 0.35, m: 0.6 }), 0, h / 2, 0); },
+  lamp(g, w, h, d) {
+    const dk = M('#22252b', { r: 0.4, m: 0.5 });
+    cyl(g, w / 2, 1.5, dk, 0, 0.75, 0);
+    cyl(g, 0.7, h * 0.9, dk, 0, h * 0.45, -w * 0.2);
+    box(g, w * 0.9, 2.5, 5, dk, 0, h, w * 0.1);
+    box(g, w * 0.8, 0.2, 4, M('#fff3d6', { e: '#ffe2a8', ei: 1 }), 0, h - 1.3, w * 0.1);
+  },
+  powerstrip(g, w, h, d) {
+    box(g, w, h, d, M('#e6e6e2', { r: 0.5 }), 0, h / 2, 0);
+    const n = Math.max(2, Math.floor((w - 8) / 5.5));
+    for (let i = 0; i < n; i++) box(g, 3, h * 0.55, 0.3, M('#3b3b3b'), -w / 2 + 6 + i * 5.5, h / 2, d / 2 + 0.1);
+    box(g, 1.8, 1, 0.3, M('#ff4747', { e: '#ff3030', ei: 0.6 }), w / 2 - 2.5, h / 2, d / 2 + 0.1);
+  },
+  outlet(g, w, h, d) {
+    box(g, w, h, d, M('#efefea', { r: 0.5 }), 0, h / 2, d / 2);
+    box(g, 3.4, 3.4, 0.3, M('#d6d6d0'), 0, h * 0.7, d + 0.1);
+    box(g, 3.4, 3.4, 0.3, M('#d6d6d0'), 0, h * 0.3, d + 0.1);
+  },
+  tray(g, w, h, d, dev) {
+    const mt = M('#4a525e', { r: 0.55, m: 0.25 });
+    box(g, w, 0.4, d, mt, 0, 0.2, 0);
+    box(g, w, h, 0.4, mt, 0, h / 2, d / 2);
+    box(g, w, h * 0.7, 0.4, mt, 0, h * 0.35, -d / 2);
+    for (const sx of [-1, 1]) box(g, 1.5, dev.elev + 0.5, d * 0.8, mt, sx * (w / 2 - 6), h + dev.elev / 2, 0);
+  },
+  grommet(g, w, h, d) {
+    cyl(g, w / 2, h, M('#2a2d33', { r: 0.4, m: 0.3 }), 0, h / 2, 0);
+    cyl(g, w / 2 - 0.8, h + 0.05, M('#050506', { r: 1 }), 0, h / 2, 0);
+  },
+  deskpad(g, w, h, d) { box(g, w, h, d, M('#26292f', { r: 0.95 }), 0, h / 2, 0).castShadow = false; },
+  custom(g, w, h, d) { box(g, w, h, d, M('#59606b', { r: 0.6 }), 0, h / 2, 0); },
+};
+
+/* ================= desk ================= */
+const DESK_COLORS = { oak: ['#b98a5b', '#2b2f35'], walnut: ['#6a4a33', '#1f2226'], white: ['#e8e5de', '#d9d9d6'], black: ['#2a2b2e', '#1a1b1d'] };
+let deskTopMat, legMat;
+function geo() { const D = state.desk; return { W: D.w, Dd: D.d, H: D.h, T: D.t, yU: D.h - D.t, z0: -D.d / 2, wallZ: -D.d / 2 - D.wallGap }; }
+function disposeGroup(g) {
+  for (const ch of [...g.children]) { g.remove(ch); ch.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+}
+function rebuildDesk() {
+  disposeGroup(deskGroup);
+  const { W, Dd, H, T, yU, wallZ } = geo();
+  const [top, leg] = DESK_COLORS[state.desk.color] || DESK_COLORS.oak;
+  deskTopMat = new THREE.MeshStandardMaterial({ color: top, roughness: 0.55 });
+  legMat = new THREE.MeshStandardMaterial({ color: leg, roughness: 0.45, metalness: 0.5 });
+  const t = box(deskGroup, W, T, Dd, deskTopMat, 0, H - T / 2, 0);
+  t.userData.isDesk = true;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(deskGroup, 5, yU, 5, legMat, sx * (W / 2 - 4), yU / 2, sz * (Dd / 2 - 4));
+  for (const sx of [-1, 1]) box(deskGroup, 4, 5, Dd - 8, legMat, sx * (W / 2 - 4), yU - 2.5, 0);
+  box(deskGroup, W - 8, 5, 3, legMat, 0, yU - 2.5, Dd / 2 - 6);
+  wall.position.z = wallZ;
+  applyXray();
+}
+function applyXray() {
+  const on = state.ui.xray;
+  for (const m of [deskTopMat, legMat]) { if (!m) continue; m.transparent = on; m.opacity = on ? 0.2 : 1; m.depthWrite = !on; m.needsUpdate = true; }
+}
+
+/* ================= devices ================= */
+function baseY(dev) {
+  const { H, yU } = geo();
+  switch (dev.zone) {
+    case 'desk': return H + dev.elev;
+    case 'under': return yU - tallOf(dev) - dev.elev;
+    default: return dev.elev;
+  }
+}
+function clampDev(dev) {
+  const { W, Dd, z0, wallZ } = geo();
+  if (!TYPES[dev.type].zones.includes(dev.zone)) dev.zone = TYPES[dev.type].zones[0];
+  if (dev.zone === 'wall') { dev.rot = 0; dev.z = wallZ + 0.01 + (dev.type === 'outlet' ? 0 : dev.d / 2); dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200); return; }
+  const c = Math.abs(Math.cos(dev.rot * DEG)), s = Math.abs(Math.sin(dev.rot * DEG));
+  const hx = (dev.w * c + dev.d * s) / 2, hz = (dev.w * s + dev.d * c) / 2;
+  if (dev.zone === 'desk' || dev.zone === 'under') {
+    dev.x = hx * 2 >= W ? 0 : clamp(dev.x, -W / 2 + hx, W / 2 - hx);
+    dev.z = hz * 2 >= Dd ? 0 : clamp(dev.z, z0 + hz, -z0 - hz);
+  } else {
+    dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200);
+    dev.z = clamp(dev.z, z0 + hz - 0.1 - state.desk.wallGap + 0.2, -z0 + 160);
+  }
+}
+const devMeshes = new Map(), devLabels = new Map();
+function placeGroup(g, dev) { g.position.set(dev.x, baseY(dev), dev.z); g.rotation.y = dev.rot * DEG; }
+function rebuildDevices() {
+  disposeGroup(devGroup);
+  for (const ch of [...labelGroup.children]) labelGroup.remove(ch);
+  devMeshes.clear(); devLabels.clear();
+  for (const dev of state.devices) {
+    clampDev(dev);
+    const g = new THREE.Group();
+    BUILD[dev.type](g, dev.w, dev.h, dev.d, dev);
+    g.traverse(o => { o.userData.devId = dev.id; });
+    placeGroup(g, dev);
+    devGroup.add(g);
+    devMeshes.set(dev.id, g);
+    if (dev.type !== 'deskpad') {
+      const div = document.createElement('div');
+      div.className = 'lbl' + (sel.dev === dev.id ? ' sel' : '');
+      div.textContent = dev.name;
+      const lb = new CSS2DObject(div);
+      labelGroup.add(lb);
+      devLabels.set(dev.id, lb);
+      placeLabel(dev);
+    }
+  }
+  labelGroup.visible = state.ui.labels;
+  updateSelHelpers();
+}
+function placeLabel(dev) {
+  const lb = devLabels.get(dev.id); if (!lb) return;
+  lb.position.set(dev.x, baseY(dev) + tallOf(dev) + 2, dev.z);
+}
+function updateSelHelpers() {
+  const g = sel.dev && devMeshes.get(sel.dev);
+  if (g) { selHelper.box.setFromObject(g).expandByScalar(0.8); selHelper.visible = true; } else selHelper.visible = false;
+  const f = connect.on && connect.first && devMeshes.get(connect.first);
+  if (f) { firstHelper.box.setFromObject(f).expandByScalar(1.2); firstHelper.visible = true; } else firstHelper.visible = false;
+}
+
+/* ================= routing ================= */
+function hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function getLane() {
+  const { W, yU, z0 } = geo();
+  const tray = state.devices.find(d => d.type === 'tray' && d.zone === 'under');
+  if (tray) return { tray: true, y: baseY(tray) + 1.3, under: yU - 1.2, z: tray.z, x0: tray.x - tray.w / 2, x1: tray.x + tray.w / 2, tz0: tray.z - tray.d / 2, tz1: tray.z + tray.d / 2, spread: Math.min(1.8, (tray.d - 3) / 5) };
+  return { tray: false, y: yU - 1.2, under: yU - 1.2, z: z0 + 9, x0: 0, x1: 0, spread: 1.0 };
+}
+let LANE;
+const laneZ = k => LANE.z + ((k % 5) - 2) * LANE.spread;
+const inTray = x => LANE.tray && x >= LANE.x0 && x <= LANE.x1;
+const yAt = (x, k) => inTray(x) ? LANE.y + Math.floor(k / 5) * 0.9 : LANE.under - Math.floor(k / 5) * 0.9;
+function laneJoin(xa, xb, k) {
+  const out = [];
+  if (!LANE.tray) return out;
+  const dir = Math.sign(xb - xa); if (!dir) return out;
+  const z = laneZ(k);
+  const bounds = [LANE.x0, LANE.x1].filter(b => (b - xa) * dir > 0 && (xb - b) * dir > 0).sort((a, b) => (a - b) * dir);
+  for (const b of bounds) {
+    const p1 = b - dir * 3, p2 = b + dir * 1;
+    out.push(V(p1, yAt(p1, k), z), V(p2, yAt(p2, k), z));
+  }
+  return out;
+}
+function nearestGrommet(p) {
+  let best = null, bd = Infinity;
+  for (const d of state.devices) if (d.type === 'grommet') { const dd = Math.hypot(d.x - p.x, d.z - p.z); if (dd < bd) { bd = dd; best = d; } }
+  return best;
+}
+function localToWorld(dev, l) {
+  const v = V(l[0], l[1], l[2]).applyAxisAngle(V(0, 1, 0), dev.rot * DEG);
+  return v.add(V(dev.x, baseY(dev), dev.z));
+}
+function endpoint(dev, c, other, touch) {
+  const t = TYPES[dev.type];
+  let list = touch.get(dev.id) || [c.id];
+  let local, out = t.out || [0, 0, -1];
+  if (dev.type === 'powerstrip') {
+    if (other.type === 'outlet') { local = [dev.w / 2 + 0.4, dev.h * 0.5, 0]; out = [1, 0, 0]; }
+    else {
+      const oth = id => { const cc = cabById(id); return cc && devById(cc.from === dev.id ? cc.to : cc.from); };
+      const lx = o => (o.x - dev.x) * Math.cos(dev.rot * DEG) - (o.z - dev.z) * Math.sin(dev.rot * DEG);
+      list = list.filter(id => { const o = oth(id); return o && o.type !== 'outlet'; }).sort((i, j) => lx(oth(i)) - lx(oth(j)));
+      const k = Math.max(0, list.indexOf(c.id)), n = stripOutlets(dev);
+      local = [-dev.w / 2 + 6 + (k % n) * 5.5, dev.h * 0.5, dev.d / 2 + 0.4]; out = [0, 0, 1];
+    }
+  } else {
+    const fn = t.port || (() => [0, dev.h / 2, -dev.d / 2]);
+    local = fn(dev.w, dev.h, dev.d);
+    const k = Math.max(0, list.indexOf(c.id)), n = list.length;
+    const off = (k - (n - 1) / 2) * (t.spacing || 1.3);
+    if (t.spreadAxis === 'z') local[2] += off; else local[0] += off;
+  }
+  if (dev.zone === 'wall' && dev.type !== 'outlet') { local[2] = dev.d / 2 + 0.3; out = [0, 0, 1]; }
+  const o = V(out[0], out[1], out[2]).applyAxisAngle(V(0, 1, 0), dev.rot * DEG);
+  return { dev, p: localToWorld(dev, local), zone: dev.zone, out: o };
+}
+
+function insideFoot(dev, x, z, m = 0) {
+  const v = V(x - dev.x, 0, z - dev.z).applyAxisAngle(V(0, 1, 0), -dev.rot * DEG);
+  return Math.abs(v.x) < dev.w / 2 + m && Math.abs(v.z) < dev.d / 2 + m;
+}
+function exitLeg(E, k, c, r) {
+  const { W, Dd, H, T, z0, wallZ } = geo();
+  const pts = [E.p.clone()], tags = [];
+  const add = (v, tag) => { pts.push(v); tags.push(tag); };
+  const lz = laneZ(k), p = E.p;
+  const cx = x => clamp(x, -W / 2 + 9, W / 2 - 9); // inside the side rails and legs
+  // go vertically at (x, z) to the lane height, then into the lane; a riser outside the tray hops over its wall
+  const enter = (x, z, tag) => {
+    if (inTray(x) && (z < LANE.tz0 + 1 || z > LANE.tz1 - 1)) {
+      add(V(x, LANE.under, z), tag); add(V(x, LANE.under, lz), 'back'); add(V(x, yAt(x, k), lz), 'lane');
+    } else { add(V(x, yAt(x, k), z), tag); add(V(x, yAt(x, k), lz), 'lane'); }
+  };
+  if (E.zone === 'desk') {
+    const a = p.clone().addScaledVector(E.out, 1.2);
+    add(V(a.x, H + r, a.z), 'dev');
+    let g = c.route !== 'edge' ? nearestGrommet(p) : null;
+    if (g && Math.hypot(g.x - a.x, g.z - a.z) > a.z - z0) g = null; // back edge is closer than the grommet
+    if (g) {
+      const gx = g.x + ((k % 3) - 1) * 0.7, gz = g.z + ((Math.floor(k / 3) % 3) - 1) * 0.7;
+      add(V(gx, H + r, gz), 'desk');
+      enter(gx, gz, 'hole');
+    } else {
+      add(V(a.x, H + r, z0 + 0.6), 'desk');
+      add(V(a.x, H - T * 0.5, z0 - r - 0.7), 'edge');
+      enter(a.x, z0 - r - 0.7, 'back');
+    }
+  } else if (E.zone === 'under') {
+    const a = p.clone().addScaledVector(E.out, 2);
+    add(a, 'dev');
+    enter(cx(a.x), a.z, 'under');
+  } else if (E.zone === 'floor') {
+    const b = p.clone().addScaledVector(E.out, 4);
+    const dx = cx(b.x);
+    let dz = clamp(b.z, z0 + 4, z0 + Dd * 0.5);
+    if (insideFoot(E.dev, dx, dz, r + 0.6)) { // don't rise through the device itself
+      dz = Math.max(b.z, z0 + r + 0.5);
+      if (insideFoot(E.dev, dx, dz, r + 0.6)) dz = Math.max(b.z, wallZ + r + 0.3);
+    }
+    if (inTray(dx) && dz > LANE.tz0 - r - 0.5 && dz < LANE.tz1 + r + 0.5) dz = b.z < LANE.z ? LANE.tz0 - r - 0.8 : LANE.tz1 + r + 0.8; // not up through the tray floor
+    add(b, 'dev');
+    if (Math.hypot(b.x - dx, b.z - dz) < 20) add(V(dx, b.y, dz), 'floor');
+    else { add(V(b.x, r, b.z), 'floor'); add(V(dx, r, dz), 'floor'); }
+    enter(dx, dz, 'drop');
+  } else { // wall
+    const b = p.clone().addScaledVector(E.out, 3);
+    add(b, 'wall');
+    const x = cx(b.x);
+    if (Math.abs(x - b.x) > 0.5) add(V(x, b.y, b.z), 'wall');
+    enter(x, b.z, 'back');
+  }
+  return { pts, tags };
+}
+function routeClean(c, A, B, k, r) {
+  const low = z => z === 'floor' || z === 'wall';
+  if (low(A.zone) && low(B.zone)) {
+    const fz = geo().z0 + 1 - (k % 3) * 0.4; // along the floor, just behind the back legs
+    const a1 = A.p.clone().addScaledVector(A.out, 3), b1 = B.p.clone().addScaledVector(B.out, 3);
+    const raw = [A.p.clone(), a1, V(a1.x, r, a1.z), V(a1.x, r, fz), V(b1.x, r, fz), V(b1.x, r, b1.z), b1, B.p.clone()];
+    const pts = [raw[0]], tags = [];
+    for (let i = 1; i < raw.length; i++) if (raw[i].distanceTo(pts.at(-1)) >= 0.05) { pts.push(raw[i]); tags.push('floor'); }
+    return { pts, tags };
+  }
+  const a = exitLeg(A, k, c, r), b = exitLeg(B, k, c, r);
+  const mid = laneJoin(a.pts.at(-1).x, b.pts.at(-1).x, k);
+  const raw = [...a.pts, ...mid, ...b.pts.slice().reverse()];
+  const rtags = [...a.tags, ...mid.map(() => 'lane'), 'lane', ...b.tags.slice().reverse()];
+  const pts = [raw[0]], tags = [];
+  for (let i = 1; i < raw.length; i++) {
+    if (raw[i].distanceTo(pts.at(-1)) < 0.05) continue;
+    pts.push(raw[i]); tags.push(rtags[i - 1]);
+  }
+  return { pts, tags };
+}
+function roundedCurve(pts, rad = 2.6) {
+  const path = new THREE.CurvePath();
+  if (pts.length < 2) return null;
+  let cur = pts[0].clone();
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i], din = p.clone().sub(pts[i - 1]), dout = pts[i + 1].clone().sub(p);
+    const rr = Math.min(rad, din.length() * 0.45, dout.length() * 0.45);
+    din.normalize(); dout.normalize();
+    const a = p.clone().addScaledVector(din, -rr), b = p.clone().addScaledVector(dout, rr);
+    if (cur.distanceTo(a) > 1e-3) path.add(new THREE.LineCurve3(cur.clone(), a));
+    if (rr > 1e-3) path.add(new THREE.QuadraticBezierCurve3(a, p.clone(), b));
+    cur = b;
+  }
+  const last = pts.at(-1);
+  if (cur.distanceTo(last) > 1e-3 || path.curves.length === 0) path.add(new THREE.LineCurve3(cur, last.clone()));
+  return path;
+}
+
+// "messy" = what cables do when you just plug things in
+function edgePoint(q) {
+  const { W, Dd, z0 } = geo();
+  const inside = Math.abs(q.x) <= W / 2 && q.z >= z0 && q.z <= -z0;
+  if (!inside) {
+    const x = clamp(q.x, -W / 2, W / 2), z = clamp(q.z, z0, -z0);
+    const n = V(q.x - x, 0, q.z - z).normalize();
+    return { x, z, n };
+  }
+  const opts = [
+    { d: q.x + W / 2, x: -W / 2, z: q.z, n: V(-1, 0, 0) },
+    { d: W / 2 - q.x, x: W / 2, z: q.z, n: V(1, 0, 0) },
+    { d: q.z - z0, x: q.x, z: z0, n: V(0, 0, -1) },
+    { d: -z0 - q.z, x: q.x, z: -z0, n: V(0, 0, 1) },
+  ].sort((a, b) => a.d - b.d);
+  return opts[0];
+}
+function drape(a, b, R) {
+  const { W, z0 } = geo();
+  const dist = Math.hypot(b.x - a.x, b.z - a.z);
+  const n = Math.max(6, Math.ceil(dist / 5));
+  const perp = V(-(b.z - a.z), 0, b.x - a.x).normalize();
+  const amp = Math.min(28, (0.12 + R() * 0.3) * dist) * (R() < 0.5 ? -1 : 1);
+  const ph = R() * 6, f = 1 + R() * 2;
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const w = amp * Math.sin(Math.PI * t) * (0.75 + 0.35 * Math.sin(f * Math.PI * t + ph));
+    const p = a.clone().lerp(b, t).addScaledVector(perp, w);
+    p.x = clamp(p.x, -W / 2 + 0.5, W / 2 - 0.5); p.z = clamp(p.z, z0 + 0.5, -z0 - 0.5); p.y = a.y;
+    out.push(p);
+  }
+  return out;
+}
+function hang(a, b, R, r) {
+  const dist = a.distanceTo(b);
+  const n = Math.max(8, Math.ceil(dist / 4));
+  const sag = 0.18 * dist + 4 + R() * 10;
+  const perp = V(-(b.z - a.z), 0, b.x - a.x); if (perp.lengthSq() < 1e-6) perp.set(1, 0, 0); perp.normalize();
+  const wig = (R() - 0.5) * 16;
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const p = a.clone().lerp(b, t);
+    p.y -= sag * Math.sin(Math.PI * t);
+    p.addScaledVector(perp, wig * Math.sin(Math.PI * t));
+    if (p.y < r) p.y = r;
+    out.push(p);
+  }
+  return out;
+}
+function routeMessy(c, A, B, r, seed) {
+  const R = rng(seed);
+  const { H } = geo();
+  const topOf = p => V(p.x, H + r, p.z);
+  const aTop = A.zone === 'desk', bTop = B.zone === 'desk';
+  let pts;
+  if (aTop && bTop) {
+    pts = [A.p.clone(), ...drape(topOf(A.p), topOf(B.p), R), B.p.clone()];
+  } else if (aTop || bTop) {
+    const T = aTop ? A : B, O = aTop ? B : A;
+    const e = edgePoint(O.p);
+    const over = V(e.x + e.n.x * (r + 0.6), H - 0.3, e.z + e.n.z * (r + 0.6));
+    const low = V(e.x + e.n.x * 3, H - 16, e.z + e.n.z * 3);
+    pts = [T.p.clone(), ...drape(topOf(T.p), V(e.x - e.n.x * 1.5, H + r, e.z - e.n.z * 1.5), R), over, low, ...hang(low, O.p, R, r)];
+    if (!aTop) pts.reverse();
+  } else {
+    pts = [A.p.clone(), ...hang(A.p, B.p, R, r)];
+  }
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) if (pts[i].distanceTo(out.at(-1)) > 0.3) out.push(pts[i]);
+  if (out.length < 2) out.push(B.p.clone().add(V(0, 0.5, 0)));
+  return out;
+}
+
+function measure(curve, managed) {
+  const { W, Dd, H, yU, z0 } = geo();
+  const len = curve.getLength();
+  const n = Math.max(2, Math.ceil(len / 2));
+  const pts = curve.getSpacedPoints(n), ds = len / n;
+  const m = { len, desk: 0, front: 0, side: 0, floor: 0, loose: 0 };
+  for (const p of pts) {
+    const inX = Math.abs(p.x) <= W / 2, inZ = p.z >= z0 && p.z <= -z0;
+    if (p.y >= H - 0.3 && p.y <= H + 1.5 && inX && inZ) m.desk += ds;
+    else if (p.y < H - 0.3 && p.y > 2.5) {
+      if (p.z > z0 + Dd * 0.6 && ((inX && p.y < yU - 3) || p.z > -z0)) m.front += ds;
+      else if (!inX && p.z > z0) m.side += ds;
+      else if (!managed && inX && inZ && p.y < yU - 4) m.loose += ds;
+    } else if (p.y <= 2.5 && !(inX && p.z < z0 + 5)) m.floor += ds;
+  }
+  return m;
+}
+const PEN = { desk: 18, front: 30, side: 20, floor: 12, loose: 6 };
+function scoreOf(list) {
+  const tot = { len: 0, desk: 0, front: 0, side: 0, floor: 0, loose: 0 };
+  for (const m of list) for (const k in tot) tot[k] += m[k];
+  let pen = 0; for (const k in PEN) pen += PEN[k] * tot[k] / 100;
+  return { ...tot, score: Math.round(clamp(100 - pen, 0, 100)) };
+}
+const grade = s => s >= 90 ? 'A' : s >= 78 ? 'B' : s >= 62 ? 'C' : s >= 45 ? 'D' : 'F';
+const STD_LEN = [30, 50, 100, 150, 180, 200, 250, 300, 500, 1000];
+const buyLen = cm => STD_LEN.find(s => s >= cm * 1.1) || Math.ceil(cm * 1.1 / 100) * 100;
+
+let RES = [], CLIPS = [], SLEEVES = [], SCORES = { before: null, after: null };
+function computeAll() {
+  LANE = getLane();
+  const touch = new Map();
+  for (const c of state.cables) for (const id of [c.from, c.to]) { if (!touch.has(id)) touch.set(id, []); touch.get(id).push(c.id); }
+  let k = 0;
+  RES = [];
+  for (const c of state.cables) {
+    const a = devById(c.from), b = devById(c.to);
+    if (!a || !b || !KINDS[c.kind]) continue;
+    const r = KINDS[c.kind].r;
+    const A = endpoint(a, c, b, touch), B = endpoint(b, c, a, touch);
+    const managed = c.route !== 'direct';
+    const clean = routeClean(c, A, B, managed ? k++ : 0, r);
+    const cleanCurve = roundedCurve(clean.pts);
+    const messyCurve = new THREE.CatmullRomCurve3(routeMessy(c, A, B, r, hash(c.id)), false, 'centripetal');
+    const before = { curve: messyCurve, m: measure(messyCurve, false) };
+    const after = managed ? { curve: cleanCurve, m: measure(cleanCurve, true) } : before;
+    RES.push({ c, a, b, r, managed, clean, cleanLen: cleanCurve.getLength(), before, after });
+  }
+  SCORES.before = scoreOf(RES.map(x => x.before.m));
+  SCORES.after = scoreOf(RES.map(x => x.after.m));
+  makeClips();
+}
+function makeClips() {
+  const { H, yU } = geo();
+  const raw = [], sl = [];
+  for (const R of RES) {
+    if (!R.managed) continue;
+    const { pts, tags } = R.clean;
+    for (let i = 0; i < tags.length; i++) {
+      const a = pts[i], b = pts[i + 1], tag = tags[i], L = a.distanceTo(b);
+      if (tag === 'lane' && a.y > yU - 6 && b.y > yU - 6 && L > 3) {
+        const ax = Math.abs(b.x - a.x) >= Math.abs(b.z - a.z) ? 'x' : 'z';
+        const lo = Math.min(a[ax], b[ax]), hi = Math.max(a[ax], b[ax]);
+        let any = false;
+        for (let v = Math.ceil(lo / 25) * 25; v <= hi; v += 25) {
+          const t = (v - a[ax]) / (b[ax] - a[ax]);
+          const p = a.clone().lerp(b, t); raw.push({ x: p.x, z: p.z, surf: 'under', n: 1, id: R.c.id }); any = true;
+        }
+        if (!any && L > 8) { const p = a.clone().lerp(b, 0.5); raw.push({ x: p.x, z: p.z, surf: 'under', n: 1, id: R.c.id }); }
+      } else if (tag === 'desk' && L > 18) {
+        for (let s = 8; s < L - 4; s += 30) { const p = a.clone().lerp(b, s / L); raw.push({ x: p.x, z: p.z, surf: 'desk', n: 1, id: R.c.id }); }
+      } else if (tag === 'drop' && L > 15) {
+        sl.push({ x: a.x, z: a.z, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y), n: 1 });
+      }
+    }
+  }
+  CLIPS = [];
+  for (const c of raw) {
+    const m = CLIPS.find(o => o.surf === c.surf && Math.hypot(o.x - c.x, o.z - c.z) < 5);
+    if (m) { m.x = (m.x * m.k + c.x) / (m.k + 1); m.z = (m.z * m.k + c.z) / (m.k + 1); m.k++; m.ids.add(c.id); m.n = m.ids.size; } else CLIPS.push({ ...c, k: 1, ids: new Set([c.id]) });
+  }
+  SLEEVES = [];
+  for (const s of sl) {
+    const m = SLEEVES.find(o => Math.hypot(o.x - s.x, o.z - s.z) < 9);
+    if (m) { m.y0 = Math.min(m.y0, s.y0); m.y1 = Math.max(m.y1, s.y1); m.x = (m.x * m.n + s.x) / (m.n + 1); m.z = (m.z * m.n + s.z) / (m.n + 1); m.n++; } else SLEEVES.push({ ...s });
+  }
+  CLIPS.sort((a, b) => a.surf.localeCompare(b.surf) || a.x - b.x);
+}
+
+/* ================= cable rendering ================= */
+const cableMeshes = new Map();
+let hoverCable = null;
+function cableColor(c) { return state.ui.coded ? KINDS[c.kind].coded : KINDS[c.kind].color; }
+function styleCable(id) {
+  const m = cableMeshes.get(id); if (!m) return;
+  const on = sel.cable === id || hoverCable === id;
+  m.material.emissive.set(on ? '#3ecf8e' : '#000000');
+  m.material.emissiveIntensity = on ? 0.55 : 1;
+}
+function renderCables() {
+  disposeGroup(cableGroup);
+  for (const ch of [...clipGroup.children]) { clipGroup.remove(ch); ch.geometry?.dispose(); }
+  cableMeshes.clear();
+  const before = state.ui.mode === 'before';
+  for (const R of RES) {
+    const curve = before ? R.before.curve : R.after.curve;
+    const len = curve.getLength();
+    const segs = Math.min(900, Math.max(24, Math.ceil(len / 0.8)));
+    const geo = new THREE.TubeGeometry(curve, segs, R.r, 8, false);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: cableColor(R.c), roughness: 0.55, metalness: 0.05 }));
+    mesh.castShadow = true;
+    mesh.userData.cableId = R.c.id;
+    cableGroup.add(mesh);
+    cableMeshes.set(R.c.id, mesh);
+    styleCable(R.c.id);
+  }
+  if (!before && state.ui.clips) {
+    const { H, yU } = geo();
+    const cm = M('#ff9f1a', { r: 0.5, e: '#5a3000', ei: 0.4 }), dm = M('#f4f4f0', { r: 0.4 });
+    for (const c of CLIPS) {
+      const under = c.surf === 'under';
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(under ? 2.4 : 2, 0.7, Math.min(9, 2 + c.n * 0.9)), under ? cm : dm);
+      mesh.position.set(c.x, under ? yU - 0.35 : H + 0.35, c.z);
+      if (!under) mesh.scale.set(1, 1, 1);
+      clipGroup.add(mesh);
+    }
+    for (const s of SLEEVES) {
+      const h = s.y1 - s.y0;
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(1.1 + s.n * 0.32, 1.1 + s.n * 0.32, h, 18, 1, true), M('#121316', { r: 0.9, t: 0.82 }));
+      mesh.position.set(s.x, s.y0 + h / 2, s.z);
+      clipGroup.add(mesh);
+    }
+  }
+}
+
+/* ================= panels ================= */
+function paletteHTML() {
+  return Object.entries(TYPES).map(([k, t]) => `<button data-add="${k}" title="Add ${esc(t.label)}"><span class="ic">${t.ic}</span>${esc(t.label)}</button>`).join('');
+}
+function renderDesk() {
+  const D = state.desk;
+  $('#deskSec').innerHTML = `<h3>Desk</h3>
+  <div class="grid2">
+    <label class="f"><span>Width</span><input type="number" data-desk="w" value="${D.w}" min="60" max="300"></label>
+    <label class="f"><span>Depth</span><input type="number" data-desk="d" value="${D.d}" min="40" max="120"></label>
+    <label class="f"><span>Height</span><input type="number" data-desk="h" value="${D.h}" min="50" max="130"></label>
+    <label class="f"><span>Top</span><input type="number" data-desk="t" value="${D.t}" min="1" max="8" step="0.5"></label>
+    <label class="f"><span>Wall gap</span><input type="number" data-desk="wallGap" value="${D.wallGap}" min="0" max="80"></label>
+    <label class="f"><span>Finish</span><select data-desk="color">${Object.keys(DESK_COLORS).map(k => `<option ${k === D.color ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
+  </div><div class="muted" style="font-size:11px;margin-top:4px">All sizes in cm.</div>`;
+}
+function renderDevList() {
+  $('#devCount').textContent = state.devices.length;
+  const cnt = id => state.cables.filter(c => c.from === id || c.to === id).length;
+  $('#devList').innerHTML = state.devices.length ? state.devices.map(d => `<div class="it ${sel.dev === d.id ? 'sel' : ''}" data-dev="${d.id}">
+     <span>${TYPES[d.type].ic}</span><span>${esc(d.name)}</span><span class="z">${ZONE_LABEL[d.zone]}${TYPES[d.type].noCable ? '' : ' · ' + cnt(d.id) + '🔌'}</span></div>`).join('')
+    : '<div class="empty">No devices yet. Add a monitor, a PC, speakers… from the grid above.</div>';
+}
+function range(key, label, val, min, max, step = 1, fmtv = v => fmt(v, true)) {
+  return `<label class="f"><span>${label}</span><input type="range" data-p="${key}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="rv" data-rv="${key}">${fmtv(val)}</span></label>`;
+}
+function renderInspector() {
+  const el = $('#inspector');
+  const dev = sel.dev && devById(sel.dev);
+  if (!dev) { el.innerHTML = `<h3>Selected</h3><div class="empty">Click a device in the scene or the list to edit it.</div>`; return; }
+  const t = TYPES[dev.type], { W, Dd, z0 } = geo();
+  const xr = (dev.zone === 'desk' || dev.zone === 'under') ? [-W / 2, W / 2] : [-W / 2 - 150, W / 2 + 150];
+  const zr = (dev.zone === 'desk' || dev.zone === 'under') ? [z0, -z0] : [z0 - state.desk.wallGap, -z0 + 150];
+  const er = { desk: [0, 80], under: [0, 30], floor: [0, 60], wall: [0, 150] }[dev.zone];
+  const elevLabel = { desk: 'Raise', under: 'Gap below top', floor: 'Raise', wall: 'Height' }[dev.zone];
+  el.innerHTML = `<h3>${t.ic} Selected <span class="sp"></span><button class="small" data-act="dup">Duplicate</button><button class="small danger" data-act="del">Delete</button></h3>
+    <label class="f"><span>Name</span><input data-p="name" value="${esc(dev.name)}" style="flex:1;min-width:0"></label>
+    <label class="f"><span>Placement</span><select data-p="zone">${t.zones.map(z => `<option value="${z}" ${z === dev.zone ? 'selected' : ''}>${ZONE_LABEL[z]}</option>`).join('')}</select></label>
+    ${range('x', 'Left–right', dev.x.toFixed(1), xr[0], xr[1], 0.5, v => fmt(+v + W / 2, true))}
+    ${dev.zone !== 'wall' ? range('z', 'Back–front', dev.z.toFixed(1), zr[0], zr[1], 0.5, v => fmt(+v - z0, true)) : ''}
+    ${range('elev', elevLabel, dev.elev, er[0], er[1], 0.5)}
+    ${t.noRot || dev.zone === 'wall' ? '' : range('rot', 'Rotate', dev.rot, -180, 180, 5, v => v + '°')}
+    <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
+      <label class="f"><span>W</span><input type="number" data-p="w" value="${dev.w}" min="0.5" step="0.5" style="width:56px"></label>
+      <label class="f"><span>H</span><input type="number" data-p="h" value="${dev.h}" min="0.2" step="0.5" style="width:56px"></label>
+      <label class="f"><span>D</span><input type="number" data-p="d" value="${dev.d}" min="0.5" step="0.5" style="width:56px"></label>
+    </div>
+    ${t.noCable || dev.type === 'powerstrip' || dev.type === 'outlet' ? '' : `<label class="f"><span>Needs a power cable</span><input type="checkbox" data-p="power" ${needsPower(dev) ? 'checked' : ''}></label>`}
+    <div class="muted" style="font-size:11px">Left–right is measured from the desk's left edge, back–front from its back edge.</div>`;
+}
+function renderCableForm() {
+  const opts = state.devices.filter(d => !TYPES[d.type].noCable).map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+  const f = $('#cFrom').value, t = $('#cTo').value;
+  $('#cFrom').innerHTML = '<option value="">From…</option>' + opts;
+  $('#cTo').innerHTML = '<option value="">To…</option>' + opts;
+  if (devById(f)) $('#cFrom').value = f;
+  if (devById(t)) $('#cTo').value = t;
+  if (!$('#cKind').options.length) $('#cKind').innerHTML = Object.entries(KINDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+}
+function renderCables_() {
+  $('#cabCount').textContent = state.cables.length;
+  if (!RES.length) { $('#cableList').innerHTML = '<div class="empty">No cables yet. Use <b>Connect mode</b> and click two devices, or pick them above.</div>'; return; }
+  $('#cableList').innerHTML = RES.map(R => {
+    const c = R.c, m = R.after.m;
+    const vis = m.desk + m.front + m.side;
+    return `<div class="cable ${sel.cable === c.id ? 'sel' : ''}" data-cable="${c.id}">
+      <div class="r1"><span class="sw" style="background:${cableColor(c)}"></span><span class="nm">${esc(R.a.name)} → ${esc(R.b.name)}</span><button class="x" data-cdel="${c.id}" title="Delete cable">×</button></div>
+      <div class="meta">${KINDS[c.kind].label} · route ${fmt(R.cleanLen)} · buy ${fmt(buyLen(R.cleanLen))}${vis > 2 ? ` · <span style="color:var(--warn)">${fmt(vis, true)} visible</span>` : ''}</div>
+      <div class="r2">
+        <select data-ckind="${c.id}">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}" ${k === c.kind ? 'selected' : ''}>${v.label}</option>`).join('')}</select>
+        <select data-croute="${c.id}">
+          ${[['auto', 'Auto (grommet if any)'], ['edge', 'Over back edge'], ['direct', 'Leave unmanaged']].map(([k, v]) => `<option value="${k}" ${k === c.route ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </div></div>`;
+  }).join('');
+}
+function ringSVG(score, color) {
+  const r = 40, C = 2 * Math.PI * r;
+  return `<svg width="92" height="92" viewBox="0 0 92 92"><circle cx="46" cy="46" r="${r}" fill="none" stroke="#262f3a" stroke-width="8"/>
+  <circle cx="46" cy="46" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C * score / 100} ${C}"/></svg>`;
+}
+function renderScore() {
+  const mode = state.ui.mode, S = SCORES[mode] || scoreOf([]);
+  const col = S.score >= 78 ? 'var(--accent)' : S.score >= 50 ? 'var(--warn)' : 'var(--bad)';
+  const b = SCORES.before?.score ?? 100, a = SCORES.after?.score ?? 100;
+  $('#scoreSec').innerHTML = `<h3>Cleanliness · ${mode === 'after' ? 'managed' : 'messy'}</h3>
+  <div class="score"><div class="ring">${ringSVG(S.score, col)}<div class="v"><b>${S.score}</b><small>grade ${grade(S.score)}</small></div></div>
+    <div><div class="ba">Before <b style="color:var(--bad)">${b}</b> → After <b style="color:var(--accent)">${a}</b></div>
+    <div class="ba" style="margin-top:4px">${RES.length} cables, ${CLIPS.length} clip spots, ${SLEEVES.length} sleeve${SLEEVES.length === 1 ? '' : 's'}</div>
+    <div class="ba" style="margin-top:4px">Press <b>B</b> to flip between messy and managed.</div></div></div>
+  <div class="metrics">
+    <span>Visible on desk top</span><span>${fmt(S.desk)}</span>
+    <span>Hanging in view (front/sides)</span><span>${fmt(S.front + S.side)}</span>
+    <span>Loose on the floor</span><span>${fmt(S.floor)}</span>
+    ${mode === 'before' ? `<span>Dangling under desk</span><span>${fmt(S.loose)}</span>` : ''}
+    <span>Total cable length</span><span>${fmt(S.len)}</span>
+  </div>`;
+}
+function planRecs() {
+  const { W, Dd, H, z0 } = geo();
+  const recs = [];
+  const strips = state.devices.filter(d => d.type === 'powerstrip');
+  const power = RES.filter(R => R.c.kind === 'power');
+  const xL = x => fmt(x + W / 2, true), zB = z => fmt(z - z0, true);
+  if (power.length >= 2 && !strips.some(s => s.zone === 'under'))
+    recs.push({ lv: 'high', t: 'Mount the power strip under the desk', p: 'Then every power cable stays under the desk and only one cord runs down to the wall. This is usually the biggest win.', act: strips.length ? ['stripUnder', 'Move strip under desk'] : ['addStrip', 'Add under-desk strip'] });
+  for (const s of strips) {
+    const used = state.cables.filter(c => (c.from === s.id || c.to === s.id) && ![c.from, c.to].map(devById).some(d => d && d.type === 'outlet')).length;
+    if (used > stripOutlets(s)) recs.push({ lv: 'high', t: `${s.name} is out of sockets`, p: `${used} plugs but only ${stripOutlets(s)} sockets. Use a longer strip (make it wider in the inspector) or add a second one.` });
+  }
+  const managed = RES.filter(R => R.managed);
+  const tray = state.devices.find(d => d.type === 'tray');
+  if (!tray && managed.filter(R => R.clean.tags.includes('lane')).length >= 3) {
+    const xs = managed.flatMap(R => R.clean.pts.filter((p, i) => R.clean.tags[i - 1] === 'lane' || R.clean.tags[i] === 'lane').map(p => p.x));
+    const lo = Math.min(...xs), hi = Math.max(...xs);
+    const len = clamp(Math.round((hi - lo + 10) / 10) * 10, 40, W - 14);
+    const cx = clamp((lo + hi) / 2, -W / 2 + len / 2 + 6, W / 2 - len / 2 - 6);
+    recs.push({ lv: 'high', t: `Add a ${fmt(len, true)} cable tray`, p: `${managed.length} cables share the run under the back of the desk. Mount a tray centred ${xL(cx)} from the left edge, about ${fmt(10, true)} in from the back edge. It replaces most of the clips.`, act: ['addTray', 'Add this tray', { len, cx }] });
+  }
+  const deskRuns = managed.filter(R => R.after.m.desk > 25 && R.a.zone === 'desk' || R.after.m.desk > 25 && R.b.zone === 'desk');
+  const hasGrom = state.devices.some(d => d.type === 'grommet');
+  if (deskRuns.length >= 2 && !hasGrom) {
+    const ps = deskRuns.map(R => R.a.zone === 'desk' ? R.clean.pts[1] : R.clean.pts.at(-2));
+    const gx = ps.reduce((s, p) => s + p.x, 0) / ps.length;
+    const gz = clamp(ps.reduce((s, p) => s + p.z, 0) / ps.length, z0 + 8, z0 + Dd * 0.4);
+    recs.push({ lv: 'mid', t: 'Drill a grommet hole or use a cable-pass clip', p: `${deskRuns.length} cables cross the desk top to reach the back edge. A grommet ${xL(gx)} from the left and ${zB(gz)} from the back shortens them.`, act: ['addGrommet', 'Add grommet here', { gx, gz }] });
+  }
+  for (const R of managed) {
+    const m = R.after.m;
+    const dv = [R.a, R.b].find(d => d.zone === 'desk' && (d.type === 'keyboard' || d.type === 'mouse'));
+    if (m.desk > 30) recs.push({ lv: 'mid', t: `${R.a.name} → ${R.b.name}: ${fmt(m.desk, true)} on the desk`, p: dv ? `A wired ${dv.type} is the cable you see most. Run it straight back under the monitor, or switch to wireless and delete this cable.` : `Move the device closer to the back edge, or add a grommet nearby.` });
+    if (m.floor > 20) recs.push({ lv: 'mid', t: `${R.a.name} → ${R.b.name} runs ${fmt(m.floor, true)} along the floor`, p: 'Move the floor device under the desk near the back, so its cables go straight up into the tray.' });
+    if (m.front + m.side > 10) recs.push({ lv: 'mid', t: `${R.a.name} → ${R.b.name} hangs where you can see it`, p: 'Something is mounted near the front or outside the desk. Move it back so its cable path stays hidden.' });
+  }
+  for (const R of RES.filter(R => !R.managed)) recs.push({ lv: 'mid', t: `${R.a.name} → ${R.b.name} is left unmanaged`, p: 'Set its route to Auto to tuck it under the desk.' });
+  for (const s of SLEEVES) recs.push({ lv: 'ok', t: `Sleeve the ${s.n > 1 ? s.n + ' cables' : 'cable'} going down to the floor`, p: `It drops ${xL(s.x)} from the left and ${zB(s.z)} from the back. Use about ${fmt(Math.ceil((s.y1 - s.y0) / 10) * 10 + 10, true)} of braided sleeve or a vertical cable spine.` });
+  const under = CLIPS.filter(c => c.surf === 'under'), top = CLIPS.filter(c => c.surf === 'desk');
+  if (under.length) recs.push({ lv: 'ok', t: `${under.length} adhesive clips under the desk`, p: 'They are the orange marks in the Under view. Positions are in the table below. Clean the surface with alcohol before sticking them.' });
+  if (top.length) recs.push({ lv: 'ok', t: `${top.length} small clips on the desk top`, p: 'They keep the short visible runs straight against the desk.' });
+  if (!recs.length && RES.length) recs.push({ lv: 'ok', t: 'Looks clean', p: 'Nothing left to fix. Check the Under view to see the finished run.' });
+  return recs;
+}
+function renderPlan() {
+  const { W, z0 } = geo();
+  const recs = planRecs();
+  const xL = x => fmt(x + W / 2, true), zB = z => fmt(z - z0, true);
+  const under = CLIPS.filter(c => c.surf === 'under'), top = CLIPS.filter(c => c.surf === 'desk');
+  const tray = state.devices.find(d => d.type === 'tray');
+  const sleeveLen = SLEEVES.reduce((s, x) => s + Math.ceil((x.y1 - x.y0) / 10) * 10 + 10, 0);
+  const laneLen = RES.length ? Math.max(0, ...RES.filter(R => R.managed).map(R => R.clean.pts.reduce((s, p, i, a) => s + (i && R.clean.tags[i - 1] === 'lane' ? p.distanceTo(a[i - 1]) : 0), 0))) : 0;
+  const ties = Math.ceil(laneLen / 30) + SLEEVES.length * 2;
+  const clipRows = list => list.map((c, i) => `<tr><td>${i + 1}</td><td class="n">${xL(c.x)}</td><td class="n">${zB(c.z)}</td><td class="n">${c.n}</td></tr>`).join('');
+  $('#planSec').innerHTML = `<h3>Install plan</h3>
+   ${recs.map(r => `<div class="rec ${r.lv}"><b>${esc(r.t)}</b><p>${esc(r.p)}</p>${r.act ? `<button class="small primary" data-rec="${r.act[0]}" data-arg='${esc(JSON.stringify(r.act[2] || {}))}'>${r.act[1]}</button>` : ''}</div>`).join('') || '<div class="empty">Add devices and cables to get a plan.</div>'}
+   ${under.length ? `<details open><summary>Under-desk clip positions (${under.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th></tr>${clipRows(under)}</table></details>` : ''}
+   ${top.length ? `<details><summary>Desk-top clip positions (${top.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th></tr>${clipRows(top)}</table></details>` : ''}
+   ${RES.length ? `<details><summary>Shopping list</summary><table>
+     <tr><td>Adhesive cable clips</td><td class="n">${Math.ceil(CLIPS.length * 1.25)} pcs</td></tr>
+     ${tray ? `<tr><td>Cable tray (in plan)</td><td class="n">${fmt(tray.w, true)}</td></tr>` : ''}
+     ${sleeveLen ? `<tr><td>Braided sleeve / spine</td><td class="n">${fmt(sleeveLen, true)}</td></tr>` : ''}
+     <tr><td>Velcro ties</td><td class="n">${ties} pcs</td></tr>
+   </table></details>
+   <details><summary>Cable lengths to buy</summary><table><tr><th>Cable</th><th class="n">Route</th><th class="n">Buy</th></tr>
+     ${RES.map(R => `<tr><td>${esc(R.a.name)} → ${esc(R.b.name)} <span class="muted">${KINDS[R.c.kind].label}</span></td><td class="n">${fmt(R.cleanLen)}</td><td class="n">${fmt(buyLen(R.cleanLen))}</td></tr>`).join('')}
+   </table><div class="muted" style="font-size:11px;margin-top:4px">Buy lengths include about 10% slack.</div></details>` : ''}`;
+}
+function renderTop() {
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === state.ui.mode));
+  document.querySelectorAll('#unitSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === state.ui.units));
+  $('#xrayBtn').classList.toggle('on', state.ui.xray);
+  $('#labelsBtn').classList.toggle('on', state.ui.labels);
+  $('#clipsBtn').classList.toggle('on', state.ui.clips);
+  $('#codedBtn').classList.toggle('on', state.ui.coded);
+  $('#connectBtn').classList.toggle('on', connect.on);
+  const mb = $('#modeBadge');
+  mb.className = state.ui.mode;
+  mb.textContent = state.ui.mode === 'before' ? '● Before: plugged in as-is' : '● After: managed routing';
+  $('#hintText').className = 'pill' + (connect.on ? ' act' : '');
+  $('#hintText').textContent = connect.on
+    ? (connect.first ? `Now click the device to connect ${devById(connect.first)?.name ?? ''} to (Esc to stop)` : 'Connect mode: click the first device')
+    : 'Drag a device to move it · drag empty space to orbit · right-drag to pan · scroll to zoom';
+}
+
+/* ================= update orchestration ================= */
+let pending = 0;
+function refresh({ devices = false, desk = false, panels = true } = {}) {
+  if (desk) { rebuildDesk(); renderDesk(); }
+  if (devices) rebuildDevices();
+  computeAll();
+  renderCables();
+  renderScore();
+  if (panels) { renderDevList(); renderInspector(); renderCableForm(); renderCables_(); renderPlan(); }
+  renderTop();
+  save();
+}
+function liveRefresh() {
+  if (pending) return;
+  pending = requestAnimationFrame(() => { pending = 0; computeAll(); renderCables(); renderScore(); });
+}
+
+/* ================= actions ================= */
+function addDevice(type) {
+  const t = TYPES[type];
+  const o = {};
+  if (type === 'camera') {
+    const mon = state.devices.find(d => d.type === 'monitor');
+    if (mon) { o.x = mon.x; o.rot = mon.rot; o.elev = tallOf(mon); const off = V(0, 0, -mon.d / 2 + 4.9).applyAxisAngle(V(0, 1, 0), mon.rot * DEG); o.z = mon.z + off.z; o.x = mon.x + off.x; }
+  }
+  if (type === 'tray') { o.z = geo().z0 + 10; o.x = 0; }
+  const dev = makeDevice(type, o);
+  state.devices.push(dev);
+  clampDev(dev);
+  sel = { dev: dev.id, cable: null };
+  refresh({ devices: true });
+}
+function smartKind(a, b) {
+  const T = new Set([a.type, b.type]), has = t => T.has(t);
+  if (has('outlet') || has('powerstrip')) return 'power';
+  if (has('monitor') && (has('pc') || has('dock'))) return 'displayport';
+  if (has('monitor') && has('laptop')) return 'usbc';
+  if (has('speaker')) return 'speaker';
+  if (has('mic') && has('dac')) return 'xlr';
+  if (has('laptop') && has('dock')) return 'usbc';
+  if (has('controller') || (has('sub') && (has('pc') || has('dac') || has('laptop')))) return 'audio';
+  return 'usb';
+}
+function addCable(a, b, kind) {
+  if (!a || !b || a === b) return;
+  state.cables.push({ id: uid(), from: a, to: b, kind: kind || smartKind(devById(a), devById(b)), route: 'auto' });
+}
+function deleteDevice(id) {
+  state.devices = state.devices.filter(d => d.id !== id);
+  state.cables = state.cables.filter(c => c.from !== id && c.to !== id);
+  if (sel.dev === id) sel.dev = null;
+  refresh({ devices: true });
+}
+function stripSpot() {
+  const tray = state.devices.find(d => d.type === 'tray' && d.zone === 'under');
+  if (tray) return { x: tray.x, z: tray.z, elev: Math.max(0, tray.elev + tray.h - TYPES.powerstrip.h - 0.6) };
+  return { z: geo().z0 + 5, elev: 0 };
+}
+function autoPower() {
+  const { z0 } = geo();
+  let strip = state.devices.find(d => d.type === 'powerstrip' && d.zone === 'under') || state.devices.find(d => d.type === 'powerstrip');
+  const hasPower = d => state.cables.some(c => c.kind === 'power' && (c.from === d.id || c.to === d.id));
+  const needy = state.devices.filter(d => !TYPES[d.type].noCable && d.type !== 'powerstrip' && d.type !== 'outlet' && needsPower(d) && !hasPower(d));
+  if (!needy.length && strip && hasPower(strip)) { flash('Every device already has power.'); return; }
+  if (!strip) { strip = makeDevice('powerstrip', { zone: 'under', x: 0, ...stripSpot() }); state.devices.push(strip); }
+  for (const d of needy) addCable(d.id, strip.id, 'power');
+  if (!state.cables.some(c => [c.from, c.to].includes(strip.id) && [c.from, c.to].map(devById).some(d => d && d.type === 'outlet'))) {
+    let out = state.devices.find(d => d.type === 'outlet');
+    if (!out) { out = makeDevice('outlet', { x: strip.x - 20, z: 0 }); state.devices.push(out); }
+    addCable(strip.id, out.id, 'power');
+  }
+  refresh({ devices: true });
+}
+function doRec(id, arg) {
+  const { z0 } = geo();
+  if (id === 'addTray') { const d = makeDevice('tray', { w: arg.len, x: arg.cx, z: z0 + 10 }); state.devices.push(d); const s = state.devices.find(q => q.type === 'powerstrip' && q.zone === 'under'); if (s) { s.rot = 0; Object.assign(s, stripSpot()); } }
+  if (id === 'addGrommet') { state.devices.push(makeDevice('grommet', { x: arg.gx, z: arg.gz })); }
+  if (id === 'stripUnder') { const s = state.devices.find(d => d.type === 'powerstrip'); s.zone = 'under'; s.rot = 0; Object.assign(s, stripSpot()); }
+  if (id === 'addStrip') {
+    const s = makeDevice('powerstrip', { zone: 'under', x: 0, ...stripSpot() }); state.devices.push(s);
+    const outIds = new Set(state.devices.filter(d => d.type === 'outlet').map(d => d.id));
+    for (const c of state.cables) if (c.kind === 'power') { if (outIds.has(c.to)) c.to = s.id; else if (outIds.has(c.from)) c.from = s.id; }
+    const out = state.devices.find(d => d.type === 'outlet');
+    if (out) addCable(s.id, out.id, 'power');
+  }
+  refresh({ devices: true });
+}
+function flash(msg) { const h = $('#hintText'); h.textContent = msg; h.className = 'pill act'; setTimeout(renderTop, 1800); }
+function setView(name, instant) {
+  const s = state.desk.w / 160;
+  const V_ = {
+    persp: [[170 * s, 165, 215 * s], [0, 68, 0]],
+    front: [[0, 128, 150 * s], [0, 82, -12]],
+    top: [[0, 330 * s, 0.1], [0, 75, 0]],
+    under: [[10, 16, 105 * s], [0, 70, -18]],
+    back: [[-40 * s, 120, -230 * s], [0, 55, 0]],
+  }[name];
+  if (!V_) return;
+  const fromP = camera.position.clone(), fromT = controls.target.clone();
+  const toP = V(...V_[0]), toT = V(...V_[1]);
+  if (instant) { camera.position.copy(toP); controls.target.copy(toT); return; }
+  const t0 = performance.now();
+  const step = now => {
+    const t = Math.min(1, (now - t0) / 550), e = 1 - Math.pow(1 - t, 3);
+    camera.position.lerpVectors(fromP, toP, e); controls.target.lerpVectors(fromT, toT, e);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ================= events: panels ================= */
+$('#palette').innerHTML = paletteHTML();
+$('#palette').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) addDevice(b.dataset.add); });
+$('#deskSec').addEventListener('change', e => {
+  const k = e.target.dataset.desk; if (!k) return;
+  state.desk[k] = k === 'color' ? e.target.value : clamp(+e.target.value || 0, +e.target.min || 0, +e.target.max || 999);
+  refresh({ desk: true, devices: true });
+});
+$('#devList').addEventListener('click', e => { const it = e.target.closest('[data-dev]'); if (it) selectDev(it.dataset.dev); });
+$('#inspector').addEventListener('input', e => {
+  const k = e.target.dataset.p; const dev = devById(sel.dev); if (!k || !dev) return;
+  if (k === 'name') { dev.name = e.target.value; const lb = devLabels.get(dev.id); if (lb) lb.element.textContent = dev.name; save(); return; }
+  if (k === 'zone' || k === 'power') return;
+  dev[k] = +e.target.value;
+  if (['w', 'h', 'd'].includes(k)) { if (!(dev[k] > 0)) return; return; }
+  clampDev(dev);
+  const g = devMeshes.get(dev.id); if (g) placeGroup(g, dev);
+  placeLabel(dev); updateSelHelpers();
+  const rv = document.querySelector(`[data-rv="${k}"]`);
+  if (rv) { const { W, z0 } = geo(); rv.textContent = k === 'x' ? fmt(dev.x + W / 2, true) : k === 'z' ? fmt(dev.z - z0, true) : k === 'rot' ? dev.rot + '°' : fmt(dev[k], true); }
+  liveRefresh();
+});
+$('#inspector').addEventListener('change', e => {
+  const k = e.target.dataset.p; const dev = devById(sel.dev);
+  if (!dev) return;
+  if (k === 'zone') { dev.zone = e.target.value; dev.elev = dev.zone === 'wall' ? 30 : (TYPES[dev.type].elev ?? 0); if (dev.zone === 'under') dev.z = geo().z0 + tallOf(dev) / 2 + 6; }
+  if (k === 'power') dev.power = e.target.checked;
+  if (['w', 'h', 'd'].includes(k)) dev[k] = Math.max(0.2, +e.target.value || TYPES[dev.type][k]);
+  if (k === 'name') { renderDevList(); renderCableForm(); renderCables_(); renderPlan(); return; }
+  refresh({ devices: true });
+});
+$('#inspector').addEventListener('click', e => {
+  const a = e.target.closest('[data-act]')?.dataset.act; const dev = devById(sel.dev); if (!a || !dev) return;
+  if (a === 'del') deleteDevice(dev.id);
+  if (a === 'dup') { const c = { ...dev, id: uid(), name: dev.name + ' copy', x: dev.x + 10 }; state.devices.push(c); sel.dev = c.id; refresh({ devices: true }); }
+});
+$('#cAdd').addEventListener('click', () => {
+  const a = $('#cFrom').value, b = $('#cTo').value;
+  if (!a || !b || a === b) { flash('Pick two different devices.'); return; }
+  addCable(a, b, $('#cKind').value); refresh();
+});
+$('#cFrom').addEventListener('change', suggestKind); $('#cTo').addEventListener('change', suggestKind);
+function suggestKind() { const a = devById($('#cFrom').value), b = devById($('#cTo').value); if (a && b) $('#cKind').value = smartKind(a, b); }
+$('#cableList').addEventListener('click', e => {
+  const del = e.target.closest('[data-cdel]');
+  if (del) { state.cables = state.cables.filter(c => c.id !== del.dataset.cdel); if (sel.cable === del.dataset.cdel) sel.cable = null; refresh(); return; }
+  if (e.target.closest('select')) return;
+  const it = e.target.closest('[data-cable]'); if (it) selectCable(it.dataset.cable);
+});
+$('#cableList').addEventListener('change', e => {
+  const k = e.target.dataset.ckind, r = e.target.dataset.croute;
+  if (k) cabById(k).kind = e.target.value;
+  if (r) cabById(r).route = e.target.value;
+  refresh();
+});
+$('#planSec').addEventListener('click', e => { const b = e.target.closest('[data-rec]'); if (b) doRec(b.dataset.rec, JSON.parse(b.dataset.arg || '{}')); });
+$('#connectBtn').addEventListener('click', () => { connect = { on: !connect.on, first: null }; updateSelHelpers(); renderTop(); });
+$('#autoPowerBtn').addEventListener('click', autoPower);
+$('#modeSeg').addEventListener('click', e => { const m = e.target.dataset.mode; if (m) { state.ui.mode = m; refresh({ panels: false }); } });
+$('#viewSeg').addEventListener('click', e => { const v = e.target.dataset.view; if (v) setView(v); });
+$('#unitSeg').addEventListener('click', e => { const u = e.target.dataset.u; if (u) { state.ui.units = u; refresh(); } });
+$('#xrayBtn').addEventListener('click', () => { state.ui.xray = !state.ui.xray; applyXray(); renderTop(); save(); });
+$('#labelsBtn').addEventListener('click', () => { state.ui.labels = !state.ui.labels; labelGroup.visible = state.ui.labels; renderTop(); save(); });
+$('#clipsBtn').addEventListener('click', () => { state.ui.clips = !state.ui.clips; renderCables(); renderTop(); save(); });
+$('#codedBtn').addEventListener('click', () => { state.ui.coded = !state.ui.coded; refresh(); });
+$('#exampleBtn').addEventListener('click', () => { if (!confirm('Replace the current setup with the example desk?')) return; const ui = state.ui; state = examplePreset(); state.ui = ui; sel = { dev: null, cable: null }; refresh({ desk: true, devices: true }); });
+$('#newBtn').addEventListener('click', () => { if (!confirm('Start an empty desk? The current setup will be cleared (export it first if you want to keep it).')) return; const ui = state.ui; state = blank(); state.ui = ui; sel = { dev: null, cable: null }; refresh({ desk: true, devices: true }); });
+$('#exportBtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+  a.download = 'desk-setup.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const s = JSON.parse(await f.text());
+    if (!s.desk || !Array.isArray(s.devices) || !Array.isArray(s.cables)) throw new Error('bad file');
+    s.devices = s.devices.filter(d => TYPES[d.type]);
+    s.ui = { ...defaultUI(), ...(s.ui || {}) };
+    state = s; sel = { dev: null, cable: null }; refresh({ desk: true, devices: true });
+  } catch (err) { alert('That file is not a CableSim setup.'); }
+  e.target.value = '';
+});
+addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea')) return;
+  if (e.key === 'Escape') { connect = { on: false, first: null }; updateSelHelpers(); renderTop(); }
+  if (e.key === 'b' || e.key === 'B') { state.ui.mode = state.ui.mode === 'after' ? 'before' : 'after'; refresh({ panels: false }); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (sel.cable) { state.cables = state.cables.filter(c => c.id !== sel.cable); sel.cable = null; refresh(); }
+    else if (sel.dev) deleteDevice(sel.dev);
+  }
+});
+
+function selectDev(id) {
+  sel = { dev: id, cable: null };
+  devLabels.forEach((lb, k) => lb.element.classList.toggle('sel', k === id));
+  cableMeshes.forEach((_, k) => styleCable(k));
+  updateSelHelpers(); renderDevList(); renderInspector(); renderCables_();
+}
+function selectCable(id) {
+  sel = { dev: null, cable: id };
+  devLabels.forEach(lb => lb.element.classList.remove('sel'));
+  cableMeshes.forEach((_, k) => styleCable(k));
+  updateSelHelpers(); renderDevList(); renderInspector(); renderCables_();
+  document.querySelector(`[data-cable="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+/* ================= events: 3D ================= */
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let drag = null, down = null;
+function setNDC(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function pickDev() {
+  const hit = ray.intersectObjects(devGroup.children, true)[0];
+  return hit ? devById(hit.object.userData.devId) : null;
+}
+function pickCable() { const hit = ray.intersectObjects(cableGroup.children, false)[0]; return hit ? hit.object.userData.cableId : null; }
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  setNDC(e);
+  down = { x: e.clientX, y: e.clientY };
+  const dHit = ray.intersectObjects(devGroup.children, true)[0], cHit = ray.intersectObjects(cableGroup.children, false)[0];
+  const dev = dHit && !(cHit && cHit.distance < dHit.distance) ? devById(dHit.object.userData.devId) : null;
+  if (!dev) return;
+  if (connect.on) {
+    controls.enabled = false;
+    renderer.domElement.setPointerCapture(e.pointerId);
+    if (TYPES[dev.type].noCable) { flash(`${TYPES[dev.type].label} doesn't take cables.`); return; }
+    if (!connect.first) connect.first = dev.id;
+    else if (connect.first !== dev.id) { addCable(connect.first, dev.id); connect.first = null; refresh(); }
+    updateSelHelpers(); renderTop();
+    return;
+  }
+  controls.enabled = false;
+  selectDev(dev.id);
+  const y = dev.zone === 'wall' ? null : baseY(dev);
+  const plane = dev.zone === 'wall' ? new THREE.Plane(V(0, 0, 1), -geo().wallZ) : new THREE.Plane(V(0, 1, 0), -y);
+  const pt = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(plane, pt)) { controls.enabled = true; return; }
+  drag = { dev, plane, ox: pt.x - dev.x, oz: pt.z - dev.z, moved: false };
+  renderer.domElement.setPointerCapture(e.pointerId);
+}, { capture: true });
+renderer.domElement.addEventListener('pointermove', e => {
+  setNDC(e);
+  const tip = $('#tip');
+  if (drag) {
+    const pt = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(drag.plane, pt)) return;
+    drag.dev.x = pt.x - drag.ox;
+    if (drag.dev.zone !== 'wall') drag.dev.z = pt.z - drag.oz;
+    clampDev(drag.dev);
+    placeGroup(devMeshes.get(drag.dev.id), drag.dev); placeLabel(drag.dev); updateSelHelpers();
+    drag.moved = true; tip.style.display = 'none';
+    liveRefresh();
+    return;
+  }
+  if (e.buttons) { tip.style.display = 'none'; return; }
+  const id = pickCable();
+  if (id !== hoverCable) { const prev = hoverCable; hoverCable = id; if (prev) styleCable(prev); if (id) styleCable(id); }
+  const dev = !id && pickDev();
+  renderer.domElement.style.cursor = id || dev ? 'pointer' : '';
+  if (id) {
+    const R = RES.find(r => r.c.id === id);
+    const r = viewEl.getBoundingClientRect();
+    tip.innerHTML = `<b>${esc(R.a.name)} → ${esc(R.b.name)}</b><br><span class="muted">${KINDS[R.c.kind].label} · ${fmt((state.ui.mode === 'before' ? R.before : R.after).curve.getLength())}</span>`;
+    tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.style.display = 'block';
+  } else tip.style.display = 'none';
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  controls.enabled = true;
+  if (drag) { const moved = drag.moved; drag = null; if (moved) refresh(); return; }
+  if (!down || connect.on) return;
+  const still = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5;
+  down = null;
+  if (!still) return;
+  setNDC(e);
+  const id = pickCable();
+  if (id) selectCable(id);
+  else if (!pickDev()) { sel = { dev: null, cable: null }; devLabels.forEach(lb => lb.element.classList.remove('sel')); cableMeshes.forEach((_, k) => styleCable(k)); updateSelHelpers(); renderDevList(); renderInspector(); renderCables_(); }
+});
+renderer.domElement.addEventListener('pointerleave', () => { $('#tip').style.display = 'none'; });
+
+/* ================= loop ================= */
+function resize() {
+  const w = viewEl.clientWidth, h = viewEl.clientHeight;
+  renderer.setSize(w, h); labelRenderer.setSize(w, h);
+  camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewEl);
+function loop() {
+  controls.update();
+  wall.visible = camera.position.z > geo().wallZ;
+  floor.visible = grid.visible = camera.position.y > 0;
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+resize();
+refresh({ desk: true, devices: true });
+setView('persp', true);
+loop();
+</script>
+</body>
+</html>
