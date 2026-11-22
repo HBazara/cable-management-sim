@@ -75,7 +75,7 @@ Hover a cable in the 3D view to see its name, kind and length. Click it to selec
 - **3D**, **Chair** (your seated view), **Top**, **Under** (looking up at the underside, best for clip positions) and **Back**.
 - **X-ray:** makes the desktop see-through.
 - **Labels:** device names in the scene.
-- **Clips:** show or hide clip and sleeve markers (orange marks under the desk).
+- **Holders:** show or hide the cable holders, edge clips and sleeves.
 - **Color-code:** colors cables by kind instead of their real colors.
 - **cm / in:** units for every measurement.
 
@@ -92,7 +92,9 @@ The panel lists each of these lengths, the total cable length, and the number of
 ## Install plan
 
 - **Recommendations**, some with a button that applies them: mount the power strip under the desk (**Move strip under desk** / **Add under-desk strip**), add a cable tray of a given length (**Add this tray**), add a grommet at a given spot (**Add grommet here**). It also warns about a strip with too few sockets, long runs on the desk top or floor, cables hanging in view, and unmanaged cables, and tells you where sleeves go.
-- **Cable holders:** under the desk, cables that run side by side share one adhesive holder with one slot per cable. Holders come in **1-, 2-, 4- and 6-cable** sizes. A bundle gets the smallest one that fits (3 cables use a 4-slot holder with a spare slot), and bundles over 6 cables use two holders side by side. The plan totals them, for example "5× 1-cable, 3× 2-cable, 2× 4-cable".
+- **Cable holders:** under the desk, cables that run side by side share one adhesive holder: a pad stuck to the underside with a loop around each cable. Holders come in **1-, 2-, 4- and 6-cable** sizes. A bundle gets the smallest one that fits (3 cables use a 4-slot holder with a spare slot), and bundles over 6 cables use two holders side by side. The plan totals them, for example "5× 1-cable, 3× 2-cable, 2× 4-cable".
+- **Bends are always held:** wherever a cable turns a corner under the desk (into its run, or down toward the floor), a holder sits just past the corner on the longer straight stretch, so the cable can't spring out of the turn. These holders are marked "bend" in the table and have an orange dot in 3D. If a regular holder is already within 6 cm of the corner, no extra holder is added.
+- **Edge clips:** wherever cables go over the desk's back edge (or a wing's side edge), a C-shaped clip grips the edge and holds them tight around the turn. The plan lists how many you need and where.
 - **Under-desk holder positions:** a table of each holder's distance from the left edge and from the back edge, how many cables pass through it, and the holder size to stick there.
 - **Desk-top clip positions:** the same for the small clips on top of the desk.
 - In the managed routing, cables under the desk never lie on top of one another. Each gets its own slot, one cable thickness apart, so you can count every cable in a run. Cables may cross, but they never overlap. If a tray is too narrow for every cable, a second layer starts, shifted half a slot so each cable stays visible.
