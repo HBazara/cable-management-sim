@@ -559,7 +559,7 @@ function baseY(dev) {
 function clampDev(dev) {
   const { W, Dd, z0, wallZ } = geo();
   if (!TYPES[dev.type].zones.includes(dev.zone)) dev.zone = TYPES[dev.type].zones[0];
-  if (dev.zone === 'wall') { dev.rot = 0; dev.z = wallZ + 0.01 + (dev.type === 'outlet' ? 0 : dev.d / 2); dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200); return; }
+  if (dev.zone === 'wall') { dev.rot = 0; dev.z = wallZ + 0.01 + (dev.type === 'outlet' ? 0 : dev.d / 2); dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200); dev.elev = clamp(dev.elev, 0, 150); return; }
   const c = Math.abs(Math.cos(dev.rot * DEG)), s = Math.abs(Math.sin(dev.rot * DEG));
   const hx = (dev.w * c + dev.d * s) / 2, hz = (dev.w * s + dev.d * c) / 2;
   if (dev.zone === 'desk' || dev.zone === 'under') {
@@ -1246,7 +1246,7 @@ function deleteSel() {
 }
 function nudgeSel(dx, dz) {
   const d = devById(sel.dev); if (!d) return;
-  d.x += dx; if (d.zone !== 'wall') d.z += dz;
+  d.x += dx; if (d.zone !== 'wall') d.z += dz; else d.elev -= dz; // on the wall, up/down = higher/lower
   clampDev(d); histKey = 'nudge:' + d.id; refresh({ devices: true });
 }
 function rotateSel(step) {
@@ -1541,7 +1541,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
   const plane = dev.zone === 'wall' ? new THREE.Plane(V(0, 0, 1), -geo().wallZ) : new THREE.Plane(V(0, 1, 0), -y);
   const pt = new THREE.Vector3();
   if (!ray.ray.intersectPlane(plane, pt)) { controls.enabled = true; return; }
-  drag = { dev, plane, ox: pt.x - dev.x, oz: pt.z - dev.z, moved: false };
+  drag = { dev, plane, ox: pt.x - dev.x, oz: pt.z - dev.z, oy: pt.y - dev.elev, moved: false };
   renderer.domElement.setPointerCapture(e.pointerId);
 }, { capture: true });
 renderer.domElement.addEventListener('pointermove', e => {
@@ -1551,7 +1551,7 @@ renderer.domElement.addEventListener('pointermove', e => {
     const pt = new THREE.Vector3();
     if (!ray.ray.intersectPlane(drag.plane, pt)) return;
     drag.dev.x = pt.x - drag.ox;
-    if (drag.dev.zone !== 'wall') drag.dev.z = pt.z - drag.oz;
+    if (drag.dev.zone !== 'wall') drag.dev.z = pt.z - drag.oz; else drag.dev.elev = pt.y - drag.oy; // wall items slide up/down too
     clampDev(drag.dev);
     placeGroup(devMeshes.get(drag.dev.id), drag.dev); placeLabel(drag.dev); updateSelHelpers();
     drag.moved = true; tip.style.display = 'none';

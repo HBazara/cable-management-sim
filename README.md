@@ -91,7 +91,7 @@ Press **?** (or click **Shortcuts**) in the app to see this list.
 | Duplicate the selected device | **Ctrl+D** |
 | Delete the selected cable or device | **Delete** or **Backspace** |
 | Deselect, leave Connect mode, close help | **Esc** |
-| Move the selected device 1 cm / 10 cm | **Arrow keys** / **Shift+Arrow keys** (up = toward the back) |
+| Move the selected device 1 cm / 10 cm | **Arrow keys** / **Shift+Arrow keys** (up = toward the back; for a wall outlet, up = higher) |
 | Rotate the selected device 15° | **R** / **Shift+R** |
 | Select the next / previous device | **Tab** / **Shift+Tab** (when the 3D view has focus) |
 | Before / After | **B** |
