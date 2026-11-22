@@ -39,7 +39,9 @@ The inspector also has **Name**, **W / H / D** size, a **Needs a power cable** c
 - Low boxes like the dock or audio interface go under the screens, next to the stand.
 - Anything else goes to the nearest free spot toward the back corners, and the desk mat is centred under the keyboard and mouse.
 
-Only desk-top items move. Ctrl+Z undoes it.
+Only desk-top items move, and locked items stay where they are. Ctrl+Z undoes it.
+
+**Locking:** click **🔓 Lock** in the inspector or press **Shift+L** to pin a device in place. A locked device can't be dragged, nudged, rotated or moved with the sliders, and Auto-arrange leaves it alone. Locked items show 🔒 in the list and on their label. Auto-arrange works around them, and when you lock one monitor or speaker on one side, it puts the unlocked one in the mirror spot so the setup stays symmetric. Click **🔒 Locked** or press Shift+L again to unlock.
 
 ## Cables
 
@@ -109,6 +111,7 @@ Press **?** (or click **Shortcuts**) in the app to see this list.
 | Views: 3D, Chair, Top, Under, Back | **1** to **5** |
 | Connect mode, Auto power | **C**, **P** |
 | Auto-arrange the desk top | **A** |
+| Lock / unlock the selected device | **Shift+L** |
 | X-ray, Labels, Clips | **X**, **L**, **K** |
 | Export / import the setup | **Ctrl+S** / **Ctrl+O** |
 

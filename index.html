@@ -179,6 +179,7 @@ kbd{font:12px ui-monospace,Consolas,monospace;background:var(--panel2);border:1p
       <h4>Selected device</h4>
       <div class="k"><span>Move 1 cm</span><kbd>← → ↑ ↓</kbd></div>
       <div class="k"><span>Move 10 cm</span><kbd>Shift+arrows</kbd></div>
+      <div class="k"><span>Lock / unlock</span><kbd>Shift+L</kbd></div>
       <div class="k"><span>Rotate 15°</span><span><kbd>R</kbd> <kbd>Shift+R</kbd></span></div>
       <div class="k"><span>Next / previous device</span><span><kbd>Tab</kbd> <kbd>Shift+Tab</kbd></span></div>
       <h4>View &amp; tools</h4>
@@ -591,7 +592,7 @@ function rebuildDevices() {
     if (dev.type !== 'deskpad') {
       const div = document.createElement('div');
       div.className = 'lbl' + (sel.dev === dev.id ? ' sel' : '');
-      div.textContent = dev.name;
+      div.textContent = (dev.locked ? '🔒 ' : '') + dev.name;
       const lb = new CSS2DObject(div);
       labelGroup.add(lb);
       devLabels.set(dev.id, lb);
@@ -997,11 +998,11 @@ function renderDevList() {
   $('#devCount').textContent = state.devices.length;
   const cnt = id => state.cables.filter(c => c.from === id || c.to === id).length;
   $('#devList').innerHTML = state.devices.length ? state.devices.map(d => `<div class="it ${sel.dev === d.id ? 'sel' : ''}" data-dev="${d.id}">
-     <span>${TYPES[d.type].ic}</span><span>${esc(d.name)}</span><span class="z">${ZONE_LABEL[d.zone]}${TYPES[d.type].noCable ? '' : ' · ' + cnt(d.id) + '🔌'}</span></div>`).join('')
+     <span>${TYPES[d.type].ic}</span><span>${esc(d.name)}${d.locked ? ' <span title="Locked">🔒</span>' : ''}</span><span class="z">${ZONE_LABEL[d.zone]}${TYPES[d.type].noCable ? '' : ' · ' + cnt(d.id) + '🔌'}</span></div>`).join('')
     : '<div class="empty">No devices yet. Add a monitor, a PC, speakers… from the grid above.</div>';
 }
 function range(key, label, val, min, max, step = 1, fmtv = v => fmt(v, true)) {
-  return `<label class="f"><span>${label}</span><input type="range" data-p="${key}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="rv" data-rv="${key}">${fmtv(val)}</span></label>`;
+  return `<label class="f"><span>${label}</span><input type="range" data-p="${key}"${devById(sel.dev)?.locked ? ' disabled' : ''} min="${min}" max="${max}" step="${step}" value="${val}"><span class="rv" data-rv="${key}">${fmtv(val)}</span></label>`;
 }
 function renderInspector() {
   const el = $('#inspector');
@@ -1012,9 +1013,10 @@ function renderInspector() {
   const zr = (dev.zone === 'desk' || dev.zone === 'under') ? [z0, -z0] : [z0 - state.desk.wallGap, -z0 + 150];
   const er = { desk: [0, 80], under: [0, 30], floor: [0, 60], wall: [0, 150] }[dev.zone];
   const elevLabel = { desk: 'Raise', under: 'Gap below top', floor: 'Raise', wall: 'Height' }[dev.zone];
-  el.innerHTML = `<h3>${t.ic} Selected <span class="sp"></span><button class="small" data-act="dup">Duplicate</button><button class="small danger" data-act="del">Delete</button></h3>
+  const L = dev.locked ? ' disabled' : '';
+  el.innerHTML = `<h3>${t.ic} Selected <span class="sp"></span><button class="small${dev.locked ? ' on' : ''}" data-act="lock" title="Locked items can't be moved or auto-arranged (Shift+L)">${dev.locked ? '🔒 Locked' : '🔓 Lock'}</button><button class="small" data-act="dup">Duplicate</button><button class="small danger" data-act="del">Delete</button></h3>
     <label class="f"><span>Name</span><input data-p="name" value="${esc(dev.name)}" style="flex:1;min-width:0"></label>
-    <label class="f"><span>Placement</span><select data-p="zone">${t.zones.map(z => `<option value="${z}" ${z === dev.zone ? 'selected' : ''}>${ZONE_LABEL[z]}</option>`).join('')}</select></label>
+    <label class="f"><span>Placement</span><select data-p="zone"${L}>${t.zones.map(z => `<option value="${z}" ${z === dev.zone ? 'selected' : ''}>${ZONE_LABEL[z]}</option>`).join('')}</select></label>
     ${range('x', 'Left–right', dev.x.toFixed(1), xr[0], xr[1], 0.5, v => fmt(+v + W / 2, true))}
     ${dev.zone !== 'wall' ? range('z', 'Back–front', dev.z.toFixed(1), zr[0], zr[1], 0.5, v => fmt(+v - z0, true)) : ''}
     ${range('elev', elevLabel, dev.elev, er[0], er[1], 0.5)}
@@ -1025,6 +1027,7 @@ function renderInspector() {
       <label class="f"><span>D</span><input type="number" data-p="d" value="${dev.d}" min="0.5" step="0.5" style="width:56px"></label>
     </div>
     ${t.noCable || dev.type === 'powerstrip' || dev.type === 'outlet' ? '' : `<label class="f"><span>Needs a power cable</span><input type="checkbox" data-p="power" ${needsPower(dev) ? 'checked' : ''}></label>`}
+    ${dev.locked ? '<div class="muted" style="font-size:11px">🔒 Locked in place. Unlock to move it.</div>' : ''}
     <div class="muted" style="font-size:11px">Left–right is measured from the desk's left edge, back–front from its back edge.</div>`;
 }
 function renderCableForm() {
@@ -1229,7 +1232,7 @@ function copySel() {
 function pasteDev(src, offset) {
   const base = src.name.replace(/ copy( \d+)?$/, '') + ' copy', names = new Set(state.devices.map(x => x.name));
   let name = base; for (let i = 2; names.has(name); i++) name = base + ' ' + i;
-  const d = { ...JSON.parse(JSON.stringify(src)), id: uid(), name };
+  const d = { ...JSON.parse(JSON.stringify(src)), id: uid(), name }; delete d.locked;
   d.x += offset;
   state.devices.push(d); clampDev(d);
   sel = { dev: d.id, cable: null };
@@ -1248,13 +1251,22 @@ function deleteSel() {
   if (sel.cable) { state.cables = state.cables.filter(c => c.id !== sel.cable); sel.cable = null; refresh(); }
   else if (sel.dev) deleteDevice(sel.dev);
 }
+function toggleLock() {
+  const d = devById(sel.dev); if (!d) { flash('Select a device first'); return; }
+  d.locked = !d.locked; if (!d.locked) delete d.locked;
+  histKey = 'lock:' + d.id; refresh({ devices: true });
+  flash(d.locked ? `🔒 ${d.name} locked. Auto-arrange will leave it alone` : `🔓 ${d.name} unlocked`);
+}
+const lockedMsg = d => flash(`🔒 ${d.name} is locked. Unlock it to move it (Shift+L)`);
 function nudgeSel(dx, dz) {
   const d = devById(sel.dev); if (!d) return;
+  if (d.locked) return lockedMsg(d);
   d.x += dx; if (d.zone !== 'wall') d.z += dz; else d.elev -= dz; // on the wall, up/down = higher/lower
   clampDev(d); histKey = 'nudge:' + d.id; refresh({ devices: true });
 }
 function rotateSel(step) {
   const d = devById(sel.dev); if (!d) return;
+  if (d.locked) return lockedMsg(d);
   if (TYPES[d.type].noRot || d.zone === 'wall') { flash(`${TYPES[d.type].label} can't be rotated`); return; }
   d.rot = ((d.rot + step + 540) % 360) - 180;
   clampDev(d); histKey = 'rot:' + d.id; refresh({ devices: true });
@@ -1265,8 +1277,9 @@ function rotateSel(step) {
    under the screens. Every other item gets the nearest free spot to a sensible target. */
 function autoArrange() {
   const { W, Dd, z0 } = geo(), zF = -z0;
-  const desk = state.devices.filter(d => d.zone === 'desk');
-  if (!desk.length) { flash('Nothing on the desk to arrange'); return; }
+  const onDesk = state.devices.filter(d => d.zone === 'desk');
+  const desk = onDesk.filter(d => !d.locked), fixed = onDesk.filter(d => d.locked && !['deskpad', 'grommet', 'camera'].includes(d.type));
+  if (!desk.length) { flash(onDesk.length ? 'Everything on the desk is locked' : 'Nothing on the desk to arrange'); return; }
   const of = t => desk.filter(d => d.type === t);
   const placed = [];                       // { dev, r: full rect, b: base rect }
   const rectAt = (x, z, w, d, rot) => {
@@ -1281,9 +1294,12 @@ function autoArrange() {
     const me = shapes(dev, x, z);
     if (me.b[0] < -W / 2 || me.b[1] > W / 2 || me.b[2] < z0 || me.b[3] > zF) return false;
     // low items may slide under a screen, so against a monitor they only have to miss its stand
+    // two monitors only need their stands apart (their screens may meet edge to edge)
+    if (dev.type === 'monitor') return placed.every(p => p.dev.type === 'monitor' ? !hit(me.b, p.b, 1) : !hit(me.r, p.r, 1.5));
     return placed.every(p => !hit(me.r, p.dev.type === 'monitor' && low(dev) ? p.b : p.r, 1.5));
   };
   const put = (dev, x, z) => { dev.x = x; dev.z = z; clampDev(dev); placed.push({ dev, ...shapes(dev, dev.x, dev.z) }); };
+  fixed.forEach(d => placed.push({ dev: d, ...shapes(d, d.x, d.z) })); // locked items: obstacles
   const RING = [];                          // search offsets, nearest first
   for (let dx = -W; dx <= W; dx += 2) for (let dz = -Dd; dz <= Dd; dz += 2) RING.push([dx, dz]);
   RING.sort((a, b) => (a[0] ** 2 + 2 * a[1] ** 2) - (b[0] ** 2 + 2 * b[1] ** 2)); // prefer sliding sideways
@@ -1292,15 +1308,24 @@ function autoArrange() {
     put(dev, x, z);                         // desk is full: keep the target
   };
 
+  // 0. a locked monitor/speaker off to one side is an anchor: an unlocked one of the same type mirrors it
+  const mirror = type => {
+    const lk = fixed.filter(d => d.type === type);
+    const anchors = lk.filter(a => Math.abs(a.x) > 3 && !lk.some(o => o !== a && Math.abs(o.x + a.x) < 6));
+    const rest = of(type).sort((a, b) => a.x - b.x);
+    while (anchors.length && rest.length) { const a = anchors.shift(), u = rest.splice(a.x > 0 ? 0 : rest.length - 1, 1)[0]; u.rot = -a.rot; near(u, -a.x, a.z); }
+    return rest;
+  };
+
   // 1. screens across the back, centred; 2 → both toed in, 3 → middle flat + sides toed in
-  const mons = of('monitor').sort((a, b) => a.x - b.x), n = mons.length;
+  const mons = mirror('monitor'), n = mons.length;
   const screenOff = m => -m.d / 2 + 4.9;  // screen plane relative to the stand centre
   const zBack = m => z0 + m.d / 2 + 1;
   const toe = n === 2 ? 10 : n === 3 ? 20 : 0;
   let rowL = 0, rowR = 0;                  // outer screen corners, for the speakers
   const setScreen = (m, cx, cz, rot) => {   // place a monitor so its screen centre is at (cx, cz)
     m.rot = rot; const o = V(0, 0, screenOff(m)).applyAxisAngle(V(0, 1, 0), rot * DEG);
-    put(m, cx - o.x, cz - o.z);
+    (fixed.length ? near : put)(m, cx - o.x, cz - o.z); // step around locked items
   };
   if (n === 1 || n >= 4 || n === 0) {
     const total = mons.reduce((s, m) => s + m.w, 0) + (n - 1) * 1;
@@ -1320,10 +1345,18 @@ function autoArrange() {
     });
   }
 
-  // 2. speakers either side of the screens, toed in
-  const spk = of('speaker').sort((a, b) => a.x - b.x);
+  // outer screen edges of every monitor on the desk (locked ones included), for the speakers
+  for (const m of onDesk.filter(d => d.type === 'monitor')) {
+    const o = V(0, 0, screenOff(m)).applyAxisAngle(V(0, 1, 0), m.rot * DEG), hw = m.w / 2 * Math.abs(Math.cos(m.rot * DEG));
+    rowL = Math.min(rowL, m.x + o.x - hw); rowR = Math.max(rowR, m.x + o.x + hw);
+  }
+
+  // 2. speakers either side of the screens, toed in (balancing against locked speakers)
+  const spk = mirror('speaker');
+  let nL = fixed.filter(d => d.type === 'speaker' && d.x < 0).length, nR = fixed.filter(d => d.type === 'speaker' && d.x >= 0).length;
   spk.forEach((s, i) => {
-    const left = spk.length === 1 ? false : i < spk.length / 2;
+    const left = nL !== nR ? nL < nR : spk.length > 1 && i < spk.length / 2;
+    left ? nL++ : nR++;
     s.rot = left ? 14 : -14;
     const x = left ? rowL - 3 - s.w / 2 : rowR + 3 + s.w / 2;
     near(s, x, z0 + s.d / 2 + 3);
@@ -1331,7 +1364,8 @@ function autoArrange() {
 
   // 3. webcam on top of the main screen(s)
   of('camera').forEach((c, i) => {
-    const m = mons.length ? mons[n === 3 ? [1, 0, 2][i % 3] : i % n] : null;
+    const all = mons.length ? mons : onDesk.filter(d => d.type === 'monitor');
+    const m = all.length ? (mons.length ? mons[n === 3 ? [1, 0, 2][i % 3] : i % n] : all[i % all.length]) : null;
     if (!m) return near(c, 0, z0 + c.d / 2 + 2);
     const o = V(0, 0, screenOff(m)).applyAxisAngle(V(0, 1, 0), m.rot * DEG);
     c.rot = m.rot; c.elev = tallOf(m); c.x = m.x + o.x; c.z = m.z + o.z; clampDev(c);
@@ -1492,7 +1526,7 @@ $('#deskSec').addEventListener('change', e => {
 $('#devList').addEventListener('click', e => { const it = e.target.closest('[data-dev]'); if (it) selectDev(it.dataset.dev); });
 $('#inspector').addEventListener('input', e => {
   const k = e.target.dataset.p; const dev = devById(sel.dev); if (!k || !dev) return;
-  if (k === 'name') { dev.name = e.target.value; const lb = devLabels.get(dev.id); if (lb) lb.element.textContent = dev.name; commitHistory('name:' + dev.id); save(); return; }
+  if (k === 'name') { dev.name = e.target.value; const lb = devLabels.get(dev.id); if (lb) lb.element.textContent = (dev.locked ? '🔒 ' : '') + dev.name; commitHistory('name:' + dev.id); save(); return; }
   if (k === 'zone' || k === 'power') return;
   dev[k] = +e.target.value;
   if (['w', 'h', 'd'].includes(k)) { if (!(dev[k] > 0)) return; return; }
@@ -1516,6 +1550,7 @@ $('#inspector').addEventListener('click', e => {
   const a = e.target.closest('[data-act]')?.dataset.act; const dev = devById(sel.dev); if (!a || !dev) return;
   if (a === 'del') deleteDevice(dev.id);
   if (a === 'dup') duplicateSel();
+  if (a === 'lock') toggleLock();
 });
 $('#cAdd').addEventListener('click', () => {
   const a = $('#cFrom').value, b = $('#cTo').value;
@@ -1606,6 +1641,7 @@ addEventListener('keydown', e => {
   else if (k === 'r') rotateSel(e.shiftKey ? -15 : 15);
   else if (k === 'c') $('#connectBtn').click();
   else if (k === 'x') $('#xrayBtn').click();
+  else if (k === 'l' && e.shiftKey) toggleLock();
   else if (k === 'l') $('#labelsBtn').click();
   else if (k === 'k') $('#clipsBtn').click();
   else if (k === 'p') autoPower();
@@ -1659,6 +1695,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
   }
   controls.enabled = false;
   selectDev(dev.id);
+  if (dev.locked) { controls.enabled = true; lockedMsg(dev); return; } // dragging a locked item just orbits
   const y = dev.zone === 'wall' ? null : baseY(dev);
   const plane = dev.zone === 'wall' ? new THREE.Plane(V(0, 0, 1), -geo().wallZ) : new THREE.Plane(V(0, 1, 0), -y);
   const pt = new THREE.Vector3();
