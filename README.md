@@ -17,6 +17,14 @@ Double-click `index.html`. It runs in your browser with no install, but it needs
 
 Set **Width**, **Depth**, **Height**, **Top** (desktop thickness), **Wall gap** (space between the desk's back edge and the wall) and **Finish**. Measure your real desk; every position and length in the plan depends on these numbers.
 
+**Desk shape:** pick **Straight**, **L-shape** or **U-shape** at the top of the Desk panel.
+- **Width** and **Depth** are the main desk, the part against the wall.
+- An L-shape has one wing. Choose **Wing on left** or **Wing on right**.
+- A U-shape has a wing on each side, and each wing has its own size. The ends are usually narrower than the main desk.
+- A wing's **Width** is how wide it is side to side. Its **Length** is how far it comes forward past the front edge of the main desk. Wings sit flush with the outer sides of the main desk.
+
+Devices can go anywhere on the wings. A cable from a device on a wing drops over the wing's outer edge and runs back under it, which keeps it out of view from the chair. The score and Auto-arrange both use the real shape.
+
 ## Devices
 
 Click a button in **Add device**: monitor, PC tower, laptop, keyboard, mouse, speaker, speaker controller, subwoofer/amp, webcam, microphone, audio interface, USB hub/dock, lamp, power strip, wall outlet, cable tray, desk grommet, desk mat, or custom box. A webcam added while a monitor exists goes on top of it.

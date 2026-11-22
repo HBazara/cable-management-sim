@@ -273,7 +273,7 @@ const stripOutlets = dev => Math.max(2, Math.floor((dev.w - 8) / 5.5));
 const STORE = 'cablesim-state-v1';
 let state;
 function defaultUI() { return { mode: 'after', units: 'cm', labels: true, clips: true, coded: false, xray: false }; }
-function blank() { return { version: 1, desk: { w: 160, d: 75, h: 75, t: 2.5, wallGap: 4, color: 'oak' }, devices: [], cables: [], ui: defaultUI() }; }
+function blank() { return { version: 1, desk: { w: 160, d: 75, h: 75, t: 2.5, wallGap: 4, color: 'oak', shape: 'rect', side: 'right', lw: 60, ll: 80, rw: 60, rl: 80 }, devices: [], cables: [], ui: defaultUI() }; }
 
 function makeDevice(type, o = {}, s = state) {
   const t = TYPES[type];
@@ -527,21 +527,74 @@ const BUILD = {
 /* ================= desk ================= */
 const DESK_COLORS = { oak: ['#b98a5b', '#2b2f35'], walnut: ['#6a4a33', '#1f2226'], white: ['#e8e5de', '#d9d9d6'], black: ['#2a2b2e', '#1a1b1d'] };
 let deskTopMat, legMat;
-function geo() { const D = state.desk; return { W: D.w, Dd: D.d, H: D.h, T: D.t, yU: D.h - D.t, z0: -D.d / 2, wallZ: -D.d / 2 - D.wallGap }; }
+/* Desk footprint (top view, x = left->right, z = back->front). The main desk sits against the wall;
+   an L adds one wing, a U adds two. A wing comes forward from the main desk's front edge, flush with
+   its outer side: wing width = side to side, wing length = how far it reaches past the main desk. */
+function wingsOf(D) {
+  const shape = D.shape || 'rect', W = D.w;
+  const maxW = shape === 'U' ? W / 2 - 10 : W - 10;
+  const mk = (s, w, l) => ({ s, w: clamp(w ?? 60, 20, maxW), l: clamp(l ?? 80, 20, 220) });
+  if (shape === 'L') return [(D.side || 'right') === 'left' ? mk(-1, D.lw, D.ll) : mk(1, D.rw, D.rl)];
+  if (shape === 'U') return [mk(-1, D.lw, D.ll), mk(1, D.rw, D.rl)];
+  return [];
+}
+function geo() {
+  const D = state.desk, W = D.w, z0 = -D.d / 2, zF = D.d / 2, wings = wingsOf(D);
+  const pieces = [{ x0: -W / 2, x1: W / 2, z0, z1: zF }];
+  for (const g of wings) pieces.push({ x0: g.s < 0 ? -W / 2 : W / 2 - g.w, x1: g.s < 0 ? -W / 2 + g.w : W / 2, z0, z1: zF + g.l, wing: g });
+  const L = wings.find(g => g.s < 0), R = wings.find(g => g.s > 0);
+  const outline = [[-W / 2, z0], [W / 2, z0],
+    ...(R ? [[W / 2, zF + R.l], [W / 2 - R.w, zF + R.l], [W / 2 - R.w, zF]] : [[W / 2, zF]]),
+    ...(L ? [[-W / 2 + L.w, zF], [-W / 2 + L.w, zF + L.l], [-W / 2, zF + L.l]] : [[-W / 2, zF]])];
+  return { W, Dd: D.d, H: D.h, T: D.t, yU: D.h - D.t, z0, zF, zMax: Math.max(zF, ...pieces.map(p => p.z1)), wings, pieces, outline, wallZ: z0 - D.wallGap };
+}
+// is (x, z) on the desk top (at least m cm inside its edge)?
+function insideDesk(x, z, m = 0, G = geo()) { return G.pieces.some(p => x >= p.x0 + m && x <= p.x1 - m && z >= p.z0 + m && z <= p.z1 - m); }
+// the wing whose top (x, z) is on, if it is past the main desk's front edge
+function wingAt(x, z, G = geo()) { return z > G.zF ? G.pieces.find(p => p.wing && x >= p.x0 - 0.5 && x <= p.x1 + 0.5 && z <= p.z1 + 0.5)?.wing || null : null; }
+// nearest point on the desk's outline, with the outward normal there
+function nearestEdge(x, z, G = geo()) {
+  let best = null;
+  const o = G.outline;
+  for (let i = 0; i < o.length; i++) {
+    const [ax, az] = o[i], [bx, bz] = o[(i + 1) % o.length];
+    const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+    const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), px = ax + t * dx, pz = az + t * dz;
+    const d = Math.hypot(x - px, z - pz);
+    if (!best || d < best.d) {
+      const n = V(dz, 0, -dx).normalize();
+      if (insideDesk(px + n.x * 0.5, pz + n.z * 0.5, 0, G)) n.negate();
+      best = { d, x: px, z: pz, n };
+    }
+  }
+  return best;
+}
 function disposeGroup(g) {
   for (const ch of [...g.children]) { g.remove(ch); ch.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
 }
 function rebuildDesk() {
   disposeGroup(deskGroup);
   const { W, Dd, H, T, yU, wallZ } = geo();
-  const [top, leg] = DESK_COLORS[state.desk.color] || DESK_COLORS.oak;
+  const [top, legCol] = DESK_COLORS[state.desk.color] || DESK_COLORS.oak;
   deskTopMat = new THREE.MeshStandardMaterial({ color: top, roughness: 0.55 });
-  legMat = new THREE.MeshStandardMaterial({ color: leg, roughness: 0.45, metalness: 0.5 });
-  const t = box(deskGroup, W, T, Dd, deskTopMat, 0, H - T / 2, 0);
-  t.userData.isDesk = true;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(deskGroup, 5, yU, 5, legMat, sx * (W / 2 - 4), yU / 2, sz * (Dd / 2 - 4));
-  for (const sx of [-1, 1]) box(deskGroup, 4, 5, Dd - 8, legMat, sx * (W / 2 - 4), yU - 2.5, 0);
-  box(deskGroup, W - 8, 5, 3, legMat, 0, yU - 2.5, Dd / 2 - 6);
+  legMat = new THREE.MeshStandardMaterial({ color: legCol, roughness: 0.45, metalness: 0.5 });
+  const { z0, zF, wings } = geo();
+  box(deskGroup, W, T, Dd, deskTopMat, 0, H - T / 2, 0).userData.isDesk = true;
+  const leg = (x, z) => box(deskGroup, 5, yU, 5, legMat, x, yU / 2, z);
+  const railX = (x, za, zb) => box(deskGroup, 4, 5, zb - za, legMat, x, yU - 2.5, (za + zb) / 2);  // runs back-front
+  const railZ = (z, xa, xb) => box(deskGroup, xb - xa, 5, 3, legMat, (xa + xb) / 2, yU - 2.5, z); // runs left-right
+  let fa = -W / 2 + 4, fb = W / 2 - 4;      // main front rail span
+  for (const s of [-1, 1]) {
+    const g = wings.find(w => w.s === s), ox = s * (W / 2 - 4);
+    leg(ox, z0 + 4);
+    if (!g) { leg(ox, zF - 4); railX(ox, z0 + 4, zF - 4); continue; }
+    const ix = s * (W / 2 - g.w + 4), zE = zF + g.l;
+    box(deskGroup, g.w, T, g.l, deskTopMat, s * (W / 2 - g.w / 2), H - T / 2, zF + g.l / 2).userData.isDesk = true;
+    leg(ox, zE - 4); leg(ix, zE - 4); leg(ix, zF + 4);
+    railX(ox, z0 + 4, zE - 4); railX(ix, zF + 4, zE - 4); railZ(zE - 6, Math.min(ox, ix), Math.max(ox, ix));
+    if (s < 0) fa = ix + 2; else fb = ix - 2;
+  }
+  if (fb - fa > 4) railZ(zF - 6, fa, fb);
   wall.position.z = wallZ;
   applyXray();
 }
@@ -568,8 +621,14 @@ function clampDev(dev) {
   const c = Math.abs(Math.cos(dev.rot * DEG)), s = Math.abs(Math.sin(dev.rot * DEG));
   const hx = (fw * c + fd * s) / 2, hz = (fw * s + fd * c) / 2;
   if (dev.zone === 'desk' || dev.zone === 'under') {
-    dev.x = hx * 2 >= W ? 0 : clamp(dev.x, -W / 2 + hx, W / 2 - hx);
-    dev.z = hz * 2 >= Dd ? 0 : clamp(dev.z, z0 + hz, -z0 - hz);
+    // nearest spot where the whole footprint is on one rectangular piece of the desk
+    let best = null;
+    for (const p of geo().pieces) {
+      if (p.x1 - p.x0 < hx * 2 || p.z1 - p.z0 < hz * 2) continue;
+      const x = clamp(dev.x, p.x0 + hx, p.x1 - hx), z = clamp(dev.z, p.z0 + hz, p.z1 - hz), d = Math.hypot(x - dev.x, z - dev.z);
+      if (!best || d < best.d) best = { x, z, d };
+    }
+    if (best) { dev.x = best.x; dev.z = best.z; } else { dev.x = hx * 2 >= W ? 0 : clamp(dev.x, -W / 2 + hx, W / 2 - hx); dev.z = 0; }
   } else {
     dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200);
     dev.z = clamp(dev.z, z0 + hz - 0.1 - state.desk.wallGap + 0.2, -z0 + 160);
@@ -678,7 +737,7 @@ function insideFoot(dev, x, z, m = 0) {
   return Math.abs(v.x) < dev.w / 2 + m && Math.abs(v.z) < dev.d / 2 + m;
 }
 function exitLeg(E, k, c, r) {
-  const { W, Dd, H, T, z0, wallZ } = geo();
+  const { W, Dd, H, T, yU, z0, wallZ } = geo();
   const pts = [E.p.clone()], tags = [];
   const add = (v, tag) => { pts.push(v); tags.push(tag); };
   const lz = laneZ(k), p = E.p;
@@ -692,9 +751,16 @@ function exitLeg(E, k, c, r) {
   if (E.zone === 'desk') {
     const a = p.clone().addScaledVector(E.out, 1.2);
     add(V(a.x, H + r, a.z), 'dev');
+    const wg = wingAt(a.x, a.z);
     let g = c.route !== 'edge' ? nearestGrommet(p) : null;
-    if (g && Math.hypot(g.x - a.x, g.z - a.z) > a.z - z0) g = null; // back edge is closer than the grommet
-    if (g) {
+    if (g && Math.hypot(g.x - a.x, g.z - a.z) > (wg ? Math.abs(wg.s * W / 2 - a.x) : a.z - z0)) g = null; // the edge is closer than the grommet
+    if (wg && !g) {
+      const ex = wg.s * W / 2, ox = ex + wg.s * (r + 0.7);
+      add(V(ex - wg.s * 0.6, H + r, a.z), 'desk');
+      add(V(ox, H - T * 0.5, a.z), 'edge');
+      add(V(ox, yU - 1.5, a.z), 'edge');
+      enter(wg.s * (W / 2 - 9 - (k % 4) * 0.8), a.z, 'under');
+    } else if (g) {
       const gx = g.x + ((k % 3) - 1) * 0.7, gz = g.z + ((Math.floor(k / 3) % 3) - 1) * 0.7;
       add(V(gx, H + r, gz), 'desk');
       enter(gx, gz, 'hole');
@@ -769,24 +835,9 @@ function roundedCurve(pts, rad = 2.6) {
 }
 
 // "messy" = what cables do when you just plug things in
-function edgePoint(q) {
-  const { W, Dd, z0 } = geo();
-  const inside = Math.abs(q.x) <= W / 2 && q.z >= z0 && q.z <= -z0;
-  if (!inside) {
-    const x = clamp(q.x, -W / 2, W / 2), z = clamp(q.z, z0, -z0);
-    const n = V(q.x - x, 0, q.z - z).normalize();
-    return { x, z, n };
-  }
-  const opts = [
-    { d: q.x + W / 2, x: -W / 2, z: q.z, n: V(-1, 0, 0) },
-    { d: W / 2 - q.x, x: W / 2, z: q.z, n: V(1, 0, 0) },
-    { d: q.z - z0, x: q.x, z: z0, n: V(0, 0, -1) },
-    { d: -z0 - q.z, x: q.x, z: -z0, n: V(0, 0, 1) },
-  ].sort((a, b) => a.d - b.d);
-  return opts[0];
-}
+function edgePoint(q) { return nearestEdge(q.x, q.z); }
 function drape(a, b, R) {
-  const { W, z0 } = geo();
+  const G = geo();
   const dist = Math.hypot(b.x - a.x, b.z - a.z);
   const n = Math.max(6, Math.ceil(dist / 5));
   const perp = V(-(b.z - a.z), 0, b.x - a.x).normalize();
@@ -797,7 +848,8 @@ function drape(a, b, R) {
     const t = i / n;
     const w = amp * Math.sin(Math.PI * t) * (0.75 + 0.35 * Math.sin(f * Math.PI * t + ph));
     const p = a.clone().lerp(b, t).addScaledVector(perp, w);
-    p.x = clamp(p.x, -W / 2 + 0.5, W / 2 - 0.5); p.z = clamp(p.z, z0 + 0.5, -z0 - 0.5); p.y = a.y;
+    if (!insideDesk(p.x, p.z, 0.5, G)) { const e = nearestEdge(p.x, p.z, G); p.x = e.x - e.n.x * 0.5; p.z = e.z - e.n.z * 0.5; }
+    p.y = a.y;
     out.push(p);
   }
   return out;
@@ -849,13 +901,16 @@ function measure(curve, managed) {
   const n = Math.max(2, Math.ceil(len / 2));
   const pts = curve.getSpacedPoints(n), ds = len / n;
   const m = { len, desk: 0, front: 0, side: 0, floor: 0, loose: 0 };
+  const G = geo();
+  // hanging below the top near an edge you face from the chair (main front, a wing's inner side)
+  const facing = (x, z) => { const wg = wingAt(x, z, G); return wg ? Math.abs(wg.s * W / 2 - x) > wg.w * 0.6 : z > z0 + Dd * 0.6; };
   for (const p of pts) {
-    const inX = Math.abs(p.x) <= W / 2, inZ = p.z >= z0 && p.z <= -z0;
-    if (p.y >= H - 0.3 && p.y <= H + 1.5 && inX && inZ) m.desk += ds;
+    const inX = Math.abs(p.x) <= W / 2, onDesk = insideDesk(p.x, p.z, 0, G);
+    if (p.y >= H - 0.3 && p.y <= H + 1.5 && onDesk) m.desk += ds;
     else if (p.y < H - 0.3 && p.y > 2.5) {
-      if (p.z > z0 + Dd * 0.6 && ((inX && p.y < yU - 3) || p.z > -z0)) m.front += ds;
+      if ((onDesk && p.y < yU - 3 && facing(p.x, p.z)) || (!onDesk && inX && p.z > z0) || p.z > G.zMax) m.front += ds;
       else if (!inX && p.z > z0) m.side += ds;
-      else if (!managed && inX && inZ && p.y < yU - 4) m.loose += ds;
+      else if (!managed && onDesk && p.y < yU - 4) m.loose += ds;
     } else if (p.y <= 2.5 && !(inX && p.z < z0 + 5)) m.floor += ds;
   }
   return m;
@@ -984,7 +1039,14 @@ function paletteHTML() {
 }
 function renderDesk() {
   const D = state.desk;
+  const shape = D.shape || 'rect', side = D.side || 'right';
+  const wing = (k, name) => `<div class="muted" style="font-size:11px;margin-top:6px">${name} wing</div><div class="grid2">
+    <label class="f" title="Side to side"><span>Width</span><input type="number" data-desk="${k}w" value="${D[k + 'w'] ?? 60}" min="20" max="250"></label>
+    <label class="f" title="How far it comes forward from the main desk"><span>Length</span><input type="number" data-desk="${k}l" value="${D[k + 'l'] ?? 80}" min="20" max="220"></label></div>`;
   $('#deskSec').innerHTML = `<h3>Desk</h3>
+  <div class="seg" style="display:flex;margin-bottom:8px">${[['rect', 'Straight'], ['L', 'L-shape'], ['U', 'U-shape']].map(([k, v]) => `<button style="flex:1" data-shape="${k}" class="${k === shape ? 'on' : ''}">${v}</button>`).join('')}</div>
+  ${shape === 'L' ? `<div class="seg" style="display:flex;margin-bottom:8px">${[['left', 'Wing on left'], ['right', 'Wing on right']].map(([k, v]) => `<button style="flex:1" data-side="${k}" class="${k === side ? 'on' : ''}">${v}</button>`).join('')}</div>` : ''}
+  ${shape !== 'rect' ? `<div class="muted" style="font-size:11px">Main desk</div>` : ''}
   <div class="grid2">
     <label class="f"><span>Width</span><input type="number" data-desk="w" value="${D.w}" min="60" max="300"></label>
     <label class="f"><span>Depth</span><input type="number" data-desk="d" value="${D.d}" min="40" max="120"></label>
@@ -992,7 +1054,10 @@ function renderDesk() {
     <label class="f"><span>Top</span><input type="number" data-desk="t" value="${D.t}" min="1" max="8" step="0.5"></label>
     <label class="f"><span>Wall gap</span><input type="number" data-desk="wallGap" value="${D.wallGap}" min="0" max="80"></label>
     <label class="f"><span>Finish</span><select data-desk="color">${Object.keys(DESK_COLORS).map(k => `<option ${k === D.color ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
-  </div><div class="muted" style="font-size:11px;margin-top:4px">All sizes in cm.</div>`;
+  </div>
+  ${shape === 'U' || (shape === 'L' && side === 'left') ? wing('l', 'Left') : ''}
+  ${shape === 'U' || (shape === 'L' && side === 'right') ? wing('r', 'Right') : ''}
+  <div class="muted" style="font-size:11px;margin-top:4px">All sizes in cm.${shape !== 'rect' ? ' Wings come forward from the front edge of the main desk, flush with its sides.' : ''}</div>`;
 }
 function renderDevList() {
   $('#devCount').textContent = state.devices.length;
@@ -1010,7 +1075,7 @@ function renderInspector() {
   if (!dev) { el.innerHTML = `<h3>Selected</h3><div class="empty">Click a device in the scene or the list to edit it.</div>`; return; }
   const t = TYPES[dev.type], { W, Dd, z0 } = geo();
   const xr = (dev.zone === 'desk' || dev.zone === 'under') ? [-W / 2, W / 2] : [-W / 2 - 150, W / 2 + 150];
-  const zr = (dev.zone === 'desk' || dev.zone === 'under') ? [z0, -z0] : [z0 - state.desk.wallGap, -z0 + 150];
+  const zr = (dev.zone === 'desk' || dev.zone === 'under') ? [z0, geo().zMax] : [z0 - state.desk.wallGap, -z0 + 150];
   const er = { desk: [0, 80], under: [0, 30], floor: [0, 60], wall: [0, 150] }[dev.zone];
   const elevLabel = { desk: 'Raise', under: 'Gap below top', floor: 'Raise', wall: 'Height' }[dev.zone];
   const L = dev.locked ? ' disabled' : '';
@@ -1276,7 +1341,7 @@ function rotateSel(step) {
    screen, keyboard + mouse front-centre, controller/mic within reach, low boxes (dock, DAC) tucked
    under the screens. Every other item gets the nearest free spot to a sensible target. */
 function autoArrange() {
-  const { W, Dd, z0 } = geo(), zF = -z0;
+  const G = geo(), { W, Dd, z0, zF } = G;
   const onDesk = state.devices.filter(d => d.zone === 'desk');
   const desk = onDesk.filter(d => !d.locked), fixed = onDesk.filter(d => d.locked && !['deskpad', 'grommet', 'camera'].includes(d.type));
   if (!desk.length) { flash(onDesk.length ? 'Everything on the desk is locked' : 'Nothing on the desk to arrange'); return; }
@@ -1292,7 +1357,7 @@ function autoArrange() {
   const shapes = (dev, x, z) => ({ r: rectAt(x, z, dev.w, dev.d, dev.rot), b: rectAt(x, z, ...footOf(dev), dev.rot) });
   const free = (dev, x, z) => {
     const me = shapes(dev, x, z);
-    if (me.b[0] < -W / 2 || me.b[1] > W / 2 || me.b[2] < z0 || me.b[3] > zF) return false;
+    if (!G.pieces.some(p => me.b[0] >= p.x0 && me.b[1] <= p.x1 && me.b[2] >= p.z0 && me.b[3] <= p.z1)) return false;
     // low items may slide under a screen, so against a monitor they only have to miss its stand
     // two monitors only need their stands apart (their screens may meet edge to edge)
     if (dev.type === 'monitor') return placed.every(p => p.dev.type === 'monitor' ? !hit(me.b, p.b, 1) : !hit(me.r, p.r, 1.5));
@@ -1301,7 +1366,7 @@ function autoArrange() {
   const put = (dev, x, z) => { dev.x = x; dev.z = z; clampDev(dev); placed.push({ dev, ...shapes(dev, dev.x, dev.z) }); };
   fixed.forEach(d => placed.push({ dev: d, ...shapes(d, d.x, d.z) })); // locked items: obstacles
   const RING = [];                          // search offsets, nearest first
-  for (let dx = -W; dx <= W; dx += 2) for (let dz = -Dd; dz <= Dd; dz += 2) RING.push([dx, dz]);
+  for (let dx = -W; dx <= W; dx += 2) for (let dz = -(G.zMax - z0); dz <= G.zMax - z0; dz += 2) RING.push([dx, dz]);
   RING.sort((a, b) => (a[0] ** 2 + 2 * a[1] ** 2) - (b[0] ** 2 + 2 * b[1] ** 2)); // prefer sliding sideways
   const near = (dev, x, z) => {
     for (const [dx, dz] of RING) if (free(dev, x + dx, z + dz)) return put(dev, x + dx, z + dz);
@@ -1494,7 +1559,7 @@ function doRec(id, arg) {
 }
 function flash(msg) { const h = $('#hintText'); h.textContent = msg; h.className = 'pill act'; setTimeout(renderTop, 1800); }
 function setView(name, instant) {
-  const s = state.desk.w / 160;
+  const G = geo(), s = Math.max(state.desk.w / 160, (G.zMax - G.z0) / 120), dz = (G.zMax - G.zF) / 2; // frame the wings too
   const V_ = {
     persp: [[170 * s, 165, 215 * s], [0, 68, 0]],
     front: [[0, 128, 150 * s], [0, 82, -12]],
@@ -1504,7 +1569,7 @@ function setView(name, instant) {
   }[name];
   if (!V_) return;
   const fromP = camera.position.clone(), fromT = controls.target.clone();
-  const toP = V(...V_[0]), toT = V(...V_[1]);
+  const toP = V(...V_[0]).add(V(0, 0, dz)), toT = V(...V_[1]).add(V(0, 0, dz));
   if (instant) { camera.position.copy(toP); controls.target.copy(toT); return; }
   const t0 = performance.now();
   const step = now => {
@@ -1518,6 +1583,11 @@ function setView(name, instant) {
 /* ================= events: panels ================= */
 $('#palette').innerHTML = paletteHTML();
 $('#palette').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) addDevice(b.dataset.add); });
+$('#deskSec').addEventListener('click', e => {
+  const b = e.target.closest('[data-shape],[data-side]'); if (!b) return;
+  if (b.dataset.shape) state.desk.shape = b.dataset.shape; else state.desk.side = b.dataset.side;
+  refresh({ desk: true, devices: true });
+});
 $('#deskSec').addEventListener('change', e => {
   const k = e.target.dataset.desk; if (!k) return;
   state.desk[k] = k === 'color' ? e.target.value : clamp(+e.target.value || 0, +e.target.min || 0, +e.target.max || 999);
