@@ -683,9 +683,27 @@ function getLane() {
   return { tray: false, y: yU - 1.2, under: yU - 1.2, z: z0 + 9, x0: 0, x1: 0, spread: 1.0 };
 }
 let LANE;
-const laneZ = k => LANE.z + ((k % 5) - 2) * LANE.spread;
+/* Every managed cable gets its own slot in the lane, side by side and never on top of another, so
+   you can count the cables in each run. Slots are one cable thickness + a small gap apart. Only when
+   a tray is too narrow for all of them does a second layer start, offset half a slot so it stays visible. */
+const laneSlot = k => {
+  const per = LANE.perRow, row = Math.floor(k / per), col = k % per, cols = Math.min(per, LANE.n - row * per);
+  return { row, off: (col - (cols - 1) / 2) * LANE.pitch + (row % 2 ? LANE.pitch / 2 : 0) };
+};
+const laneZ = k => LANE.z + laneSlot(k).off;
 const inTray = x => LANE.tray && x >= LANE.x0 && x <= LANE.x1;
-const yAt = (x, k) => inTray(x) ? LANE.y + Math.floor(k / 5) * 0.9 : LANE.under - Math.floor(k / 5) * 0.9;
+const yAt = (x, k) => { const row = laneSlot(k).row; return inTray(x) ? LANE.y + row * LANE.pitch : LANE.under - row * LANE.pitch; };
+// risers and cross runs: each managed cable claims its own x line, at least one slot from any other
+let XS = [], FK = 0, CLAIMING = true;
+function claimX(x, lo = -Infinity, hi = Infinity) {
+  if (!CLAIMING) return x;
+  const pch = LANE.pitch;
+  for (let i = 0; i < 400; i++) {
+    const c = clamp(x + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * pch, lo, hi);
+    if (XS.every(u => Math.abs(u - c) >= pch - 1e-6)) { XS.push(c); return c; }
+  }
+  XS.push(x); return x;
+}
 function laneJoin(xa, xb, k) {
   const out = [];
   if (!LANE.tray) return out;
@@ -759,23 +777,24 @@ function exitLeg(E, k, c, r) {
       add(V(ex - wg.s * 0.6, H + r, a.z), 'desk');
       add(V(ox, H - T * 0.5, a.z), 'edge');
       add(V(ox, yU - 1.5, a.z), 'edge');
-      enter(wg.s * (W / 2 - 9 - (k % 4) * 0.8), a.z, 'under');
+      enter(claimX(wg.s * (W / 2 - 9), -W / 2 + 9, W / 2 - 9), a.z, 'under');
     } else if (g) {
       const gx = g.x + ((k % 3) - 1) * 0.7, gz = g.z + ((Math.floor(k / 3) % 3) - 1) * 0.7;
       add(V(gx, H + r, gz), 'desk');
       enter(gx, gz, 'hole');
     } else {
-      add(V(a.x, H + r, z0 + 0.6), 'desk');
-      add(V(a.x, H - T * 0.5, z0 - r - 0.7), 'edge');
-      enter(a.x, z0 - r - 0.7, 'back');
+      const bx = claimX(a.x, -W / 2 + 2, W / 2 - 2);
+      add(V(bx, H + r, z0 + 0.6), 'desk');
+      add(V(bx, H - T * 0.5, z0 - r - 0.7), 'edge');
+      enter(bx, z0 - r - 0.7, 'back');
     }
   } else if (E.zone === 'under') {
     const a = p.clone().addScaledVector(E.out, 2);
     add(a, 'dev');
-    enter(cx(a.x), a.z, 'under');
+    enter(claimX(cx(a.x), -W / 2 + 9, W / 2 - 9), a.z, 'under');
   } else if (E.zone === 'floor') {
     const b = p.clone().addScaledVector(E.out, 4);
-    const dx = cx(b.x);
+    const dx = claimX(cx(b.x), -W / 2 + 9, W / 2 - 9);
     let dz = clamp(b.z, z0 + 4, z0 + Dd * 0.5);
     if (insideFoot(E.dev, dx, dz, r + 0.6)) { // don't rise through the device itself
       dz = Math.max(b.z, z0 + r + 0.5);
@@ -789,7 +808,7 @@ function exitLeg(E, k, c, r) {
   } else { // wall
     const b = p.clone().addScaledVector(E.out, 3);
     add(b, 'wall');
-    const x = cx(b.x);
+    const x = claimX(cx(b.x), -W / 2 + 9, W / 2 - 9);
     if (Math.abs(x - b.x) > 0.5) add(V(x, b.y, b.z), 'wall');
     enter(x, b.z, 'back');
   }
@@ -798,7 +817,7 @@ function exitLeg(E, k, c, r) {
 function routeClean(c, A, B, k, r) {
   const low = z => z === 'floor' || z === 'wall';
   if (low(A.zone) && low(B.zone)) {
-    const fz = geo().z0 + 1 - (k % 3) * 0.4; // along the floor, just behind the back legs
+    const fz = geo().z0 + 1 - (CLAIMING ? FK++ : 0) * LANE.pitch; // along the floor behind the back legs, side by side
     const a1 = A.p.clone().addScaledVector(A.out, 3), b1 = B.p.clone().addScaledVector(B.out, 3);
     const raw = [A.p.clone(), a1, V(a1.x, r, a1.z), V(a1.x, r, fz), V(b1.x, r, fz), V(b1.x, r, b1.z), b1, B.p.clone()];
     const pts = [raw[0]], tags = [];
@@ -929,6 +948,14 @@ const buyLen = cm => STD_LEN.find(s => s >= cm * 1.1) || Math.ceil(cm * 1.1 / 10
 let RES = [], CLIPS = [], SLEEVES = [], SCORES = { before: null, after: null };
 function computeAll() {
   LANE = getLane();
+  {
+    const live = state.cables.filter(c => devById(c.from) && devById(c.to) && KINDS[c.kind]);
+    LANE.pitch = 2 * Math.max(0.2, ...live.map(c => KINDS[c.kind].r)) + 0.5;
+    LANE.n = Math.max(1, live.filter(c => c.route !== 'direct').length);
+    if (LANE.tray) LANE.perRow = Math.max(1, Math.floor((LANE.tz1 - LANE.tz0 - 2) / LANE.pitch));
+    else { LANE.perRow = LANE.n; LANE.z = Math.max(LANE.z, geo().z0 + 4 + (LANE.n - 1) * LANE.pitch / 2); }
+    XS = []; FK = 0;
+  }
   const touch = new Map();
   for (const c of state.cables) for (const id of [c.from, c.to]) { if (!touch.has(id)) touch.set(id, []); touch.get(id).push(c.id); }
   let k = 0;
@@ -939,7 +966,9 @@ function computeAll() {
     const r = KINDS[c.kind].r;
     const A = endpoint(a, c, b, touch), B = endpoint(b, c, a, touch);
     const managed = c.route !== 'direct';
+    CLAIMING = managed;
     const clean = routeClean(c, A, B, managed ? k++ : 0, r);
+    CLAIMING = true;
     const cleanCurve = roundedCurve(clean.pts);
     const messyCurve = new THREE.CatmullRomCurve3(routeMessy(c, A, B, r, hash(c.id)), false, 'centripetal');
     const before = { curve: messyCurve, m: measure(messyCurve, false) };
@@ -964,9 +993,9 @@ function makeClips() {
         let any = false;
         for (let v = Math.ceil(lo / 25) * 25; v <= hi; v += 25) {
           const t = (v - a[ax]) / (b[ax] - a[ax]);
-          const p = a.clone().lerp(b, t); raw.push({ x: p.x, z: p.z, surf: 'under', n: 1, id: R.c.id }); any = true;
+          const p = a.clone().lerp(b, t); raw.push({ x: p.x, z: p.z, surf: 'under', ax, n: 1, id: R.c.id }); any = true;
         }
-        if (!any && L > 8) { const p = a.clone().lerp(b, 0.5); raw.push({ x: p.x, z: p.z, surf: 'under', n: 1, id: R.c.id }); }
+        if (!any && L > 8) { const p = a.clone().lerp(b, 0.5); raw.push({ x: p.x, z: p.z, surf: 'under', ax, n: 1, id: R.c.id }); }
       } else if (tag === 'desk' && L > 18) {
         for (let s = 8; s < L - 4; s += 30) { const p = a.clone().lerp(b, s / L); raw.push({ x: p.x, z: p.z, surf: 'desk', n: 1, id: R.c.id }); }
       } else if (tag === 'drop' && L > 15) {
@@ -975,10 +1004,20 @@ function makeClips() {
     }
   }
   CLIPS = [];
+  // under the desk, parallel cables next to each other share one holder: same spot along the run,
+  // and the bundle may be up to 15 cm wide across it (lo/hi = the bundle's edges across the run)
+  const across = c => (c.ax === 'z' ? c.x : c.z), along = c => (c.ax === 'z' ? c.z : c.x);
   for (const c of raw) {
-    const m = CLIPS.find(o => o.surf === c.surf && Math.hypot(o.x - c.x, o.z - c.z) < 5);
-    if (m) { m.x = (m.x * m.k + c.x) / (m.k + 1); m.z = (m.z * m.k + c.z) / (m.k + 1); m.k++; m.ids.add(c.id); m.n = m.ids.size; } else CLIPS.push({ ...c, k: 1, ids: new Set([c.id]) });
+    let m;
+    if (c.ax) m = CLIPS.find(o => o.ax === c.ax && Math.abs(along(o) - along(c)) < 5 && across(c) >= o.lo - 3 && across(c) <= o.hi + 3 && Math.max(o.hi, across(c)) - Math.min(o.lo, across(c)) <= 15);
+    else m = CLIPS.find(o => !o.ax && o.surf === c.surf && Math.hypot(o.x - c.x, o.z - c.z) < 5);
+    if (m) {
+      if (c.ax) { m.lo = Math.min(m.lo, across(c)); m.hi = Math.max(m.hi, across(c)); const mid = (m.lo + m.hi) / 2; if (c.ax === 'z') m.x = mid; else m.z = mid; }
+      else { m.x = (m.x * m.k + c.x) / (m.k + 1); m.z = (m.z * m.k + c.z) / (m.k + 1); }
+      m.k++; m.ids.add(c.id); m.n = m.ids.size;
+    } else CLIPS.push({ ...c, k: 1, ids: new Set([c.id]), lo: across(c), hi: across(c) });
   }
+  for (const c of CLIPS) c.span = c.ax ? c.hi - c.lo : 0;
   SLEEVES = [];
   for (const s of sl) {
     const m = SLEEVES.find(o => Math.hypot(o.x - s.x, o.z - s.z) < 9);
@@ -1019,7 +1058,8 @@ function renderCables() {
     const cm = M('#ff9f1a', { r: 0.5, e: '#5a3000', ei: 0.4 }), dm = M('#f4f4f0', { r: 0.4 });
     for (const c of CLIPS) {
       const under = c.surf === 'under';
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(under ? 2.4 : 2, 0.7, Math.min(9, 2 + c.n * 0.9)), under ? cm : dm);
+      const wide = (c.span || 0) + 2.4, alongZ = c.ax === 'z';
+      const mesh = new THREE.Mesh(under ? new THREE.BoxGeometry(alongZ ? wide : 2.4, 0.7, alongZ ? 2.4 : wide) : new THREE.BoxGeometry(2, 0.7, Math.min(9, 2 + c.n * 0.9)), under ? cm : dm);
       mesh.position.set(c.x, under ? yU - 0.35 : H + 0.35, c.z);
       if (!under) mesh.scale.set(1, 1, 1);
       clipGroup.add(mesh);
@@ -1196,10 +1236,10 @@ function renderPlan() {
   const sleeveLen = SLEEVES.reduce((s, x) => s + Math.ceil((x.y1 - x.y0) / 10) * 10 + 10, 0);
   const laneLen = RES.length ? Math.max(0, ...RES.filter(R => R.managed).map(R => R.clean.pts.reduce((s, p, i, a) => s + (i && R.clean.tags[i - 1] === 'lane' ? p.distanceTo(a[i - 1]) : 0), 0))) : 0;
   const ties = Math.ceil(laneLen / 30) + SLEEVES.length * 2;
-  const clipRows = list => list.map((c, i) => `<tr><td>${i + 1}</td><td class="n">${xL(c.x)}</td><td class="n">${zB(c.z)}</td><td class="n">${c.n}</td></tr>`).join('');
+  const clipRows = (list, w) => list.map((c, i) => `<tr><td>${i + 1}</td><td class="n">${xL(c.x)}</td><td class="n">${zB(c.z)}</td><td class="n">${c.n}</td>${w ? `<td class="n">${fmt(Math.ceil(c.span + 2), true)}</td>` : ''}</tr>`).join('');
   $('#planSec').innerHTML = `<h3>Install plan</h3>
    ${recs.map(r => `<div class="rec ${r.lv}"><b>${esc(r.t)}</b><p>${esc(r.p)}</p>${r.act ? `<button class="small primary" data-rec="${r.act[0]}" data-arg='${esc(JSON.stringify(r.act[2] || {}))}'>${r.act[1]}</button>` : ''}</div>`).join('') || '<div class="empty">Add devices and cables to get a plan.</div>'}
-   ${under.length ? `<details open><summary>Under-desk clip positions (${under.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th></tr>${clipRows(under)}</table></details>` : ''}
+   ${under.length ? `<details open><summary>Under-desk holder positions (${under.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th><th class="n" title="How wide the holder must be to take the whole bundle">Width</th></tr>${clipRows(under, true)}</table></details>` : ''}
    ${top.length ? `<details><summary>Desk-top clip positions (${top.length})</summary><table><tr><th>#</th><th class="n">From left</th><th class="n">From back</th><th class="n">Cables</th></tr>${clipRows(top)}</table></details>` : ''}
    ${RES.length ? `<details><summary>Shopping list</summary><table>
      <tr><td>Adhesive cable clips</td><td class="n">${Math.ceil(CLIPS.length * 1.25)} pcs</td></tr>

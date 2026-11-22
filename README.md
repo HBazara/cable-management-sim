@@ -92,7 +92,9 @@ The panel lists each of these lengths, the total cable length, and the number of
 ## Install plan
 
 - **Recommendations**, some with a button that applies them: mount the power strip under the desk (**Move strip under desk** / **Add under-desk strip**), add a cable tray of a given length (**Add this tray**), add a grommet at a given spot (**Add grommet here**). It also warns about a strip with too few sockets, long runs on the desk top or floor, cables hanging in view, and unmanaged cables, and tells you where sleeves go.
-- **Under-desk clip positions** and **Desk-top clip positions:** tables of each clip's distance from the left edge and from the back edge, and how many cables it holds.
+- **Under-desk holder positions:** a table of each holder's distance from the left edge and from the back edge, how many cables it holds, and how wide it must be. Cables that run side by side share one holder.
+- **Desk-top clip positions:** the same for the small clips on top of the desk.
+- In the managed routing, cables under the desk never lie on top of one another. Each gets its own slot, one cable thickness apart, so you can count every cable in a run. Cables may cross, but they never overlap. If a tray is too narrow for every cable, a second layer starts, shifted half a slot so each cable stays visible.
 - **Shopping list:** adhesive clips (with 25% spare), the tray, braided sleeve length, and Velcro ties.
 - **Cable lengths to buy:** each cable's route length and the next standard length up, with about 10% slack.
 
