@@ -153,7 +153,7 @@ kbd{font:12px ui-monospace,Consolas,monospace;background:var(--panel2);border:1p
 <aside id="left">
   <section id="deskSec"></section>
   <section><h3>Add device</h3><div class="pal" id="palette"></div></section>
-  <section><h3>Devices <span class="sp"></span><span class="muted" id="devCount"></span></h3><div class="list" id="devList"></div></section>
+  <section><h3>Devices <span class="sp"></span><span class="muted" id="devCount"></span> <button class="small" id="arrangeBtn" title="Lay out the desk-top items cleanly using their sizes (A)">✨ Auto-arrange</button></h3><div class="list" id="devList"></div></section>
   <section id="inspector"></section>
 </aside>
 
@@ -186,6 +186,7 @@ kbd{font:12px ui-monospace,Consolas,monospace;background:var(--panel2);border:1p
       <div class="k"><span>3D · Chair · Top · Under · Back</span><kbd>1–5</kbd></div>
       <div class="k"><span>Connect mode</span><kbd>C</kbd></div>
       <div class="k"><span>Auto power</span><kbd>P</kbd></div>
+      <div class="k"><span>Auto-arrange desk</span><kbd>A</kbd></div>
       <div class="k"><span>X-ray desk</span><kbd>X</kbd></div>
       <div class="k"><span>Labels</span><kbd>L</kbd></div>
       <div class="k"><span>Clips</span><kbd>K</kbd></div>
@@ -262,6 +263,7 @@ const TYPES = {
   deskpad:    { label: 'Desk mat', ic: '▭', w: 90, h: 0.3, d: 40, zones: ['desk'], noCable: true },
   custom:     { label: 'Custom box', ic: '⬜', w: 20, h: 10, d: 15, zones: ['desk', 'under', 'floor', 'wall'], port: (w, h, d) => [0, h * 0.5, -d / 2 - 0.3] },
 };
+const footOf = dev => (dev.type === 'monitor' ? [Math.min(dev.w * 0.36, 26), dev.d] : [dev.w, dev.d]); // what rests on the desk
 const tallOf = dev => (TYPES[dev.type].tall ? TYPES[dev.type].tall(dev.w, dev.h, dev.d) : dev.h);
 const needsPower = dev => dev.power ?? !!TYPES[dev.type].power;
 const stripOutlets = dev => Math.max(2, Math.floor((dev.w - 8) / 5.5));
@@ -560,8 +562,10 @@ function clampDev(dev) {
   const { W, Dd, z0, wallZ } = geo();
   if (!TYPES[dev.type].zones.includes(dev.zone)) dev.zone = TYPES[dev.type].zones[0];
   if (dev.zone === 'wall') { dev.rot = 0; dev.z = wallZ + 0.01 + (dev.type === 'outlet' ? 0 : dev.d / 2); dev.x = clamp(dev.x, -W / 2 - 200, W / 2 + 200); dev.elev = clamp(dev.elev, 0, 150); return; }
+  // monitors: only the stand's base has to stay on the desk; the screen may overhang the edge
+  const [fw, fd] = dev.zone === 'desk' ? footOf(dev) : [dev.w, dev.d];
   const c = Math.abs(Math.cos(dev.rot * DEG)), s = Math.abs(Math.sin(dev.rot * DEG));
-  const hx = (dev.w * c + dev.d * s) / 2, hz = (dev.w * s + dev.d * c) / 2;
+  const hx = (fw * c + fd * s) / 2, hz = (fw * s + fd * c) / 2;
   if (dev.zone === 'desk' || dev.zone === 'under') {
     dev.x = hx * 2 >= W ? 0 : clamp(dev.x, -W / 2 + hx, W / 2 - hx);
     dev.z = hz * 2 >= Dd ? 0 : clamp(dev.z, z0 + hz, -z0 - hz);
@@ -1255,6 +1259,122 @@ function rotateSel(step) {
   d.rot = ((d.rot + step + 540) % 360) - 180;
   clampDev(d); histKey = 'rot:' + d.id; refresh({ devices: true });
 }
+/* Auto-arrange: lays out the desk-top items in a clean, symmetric setup using each item's own size.
+   Screens in a row at the back (side screens toed in), speakers flanking them, webcam on the main
+   screen, keyboard + mouse front-centre, controller/mic within reach, low boxes (dock, DAC) tucked
+   under the screens. Every other item gets the nearest free spot to a sensible target. */
+function autoArrange() {
+  const { W, Dd, z0 } = geo(), zF = -z0;
+  const desk = state.devices.filter(d => d.zone === 'desk');
+  if (!desk.length) { flash('Nothing on the desk to arrange'); return; }
+  const of = t => desk.filter(d => d.type === t);
+  const placed = [];                       // { dev, r: full rect, b: base rect }
+  const rectAt = (x, z, w, d, rot) => {
+    const c = Math.abs(Math.cos(rot * DEG)), s = Math.abs(Math.sin(rot * DEG));
+    const hx = (w * c + d * s) / 2, hz = (w * s + d * c) / 2;
+    return [x - hx, x + hx, z - hz, z + hz];
+  };
+  const hit = (a, b, m) => a[0] < b[1] + m && b[0] < a[1] + m && a[2] < b[3] + m && b[2] < a[3] + m;
+  const low = dev => tallOf(dev) < 9;     // fits under a screen (screens start ~10 cm up)
+  const shapes = (dev, x, z) => ({ r: rectAt(x, z, dev.w, dev.d, dev.rot), b: rectAt(x, z, ...footOf(dev), dev.rot) });
+  const free = (dev, x, z) => {
+    const me = shapes(dev, x, z);
+    if (me.b[0] < -W / 2 || me.b[1] > W / 2 || me.b[2] < z0 || me.b[3] > zF) return false;
+    // low items may slide under a screen, so against a monitor they only have to miss its stand
+    return placed.every(p => !hit(me.r, p.dev.type === 'monitor' && low(dev) ? p.b : p.r, 1.5));
+  };
+  const put = (dev, x, z) => { dev.x = x; dev.z = z; clampDev(dev); placed.push({ dev, ...shapes(dev, dev.x, dev.z) }); };
+  const RING = [];                          // search offsets, nearest first
+  for (let dx = -W; dx <= W; dx += 2) for (let dz = -Dd; dz <= Dd; dz += 2) RING.push([dx, dz]);
+  RING.sort((a, b) => (a[0] ** 2 + 2 * a[1] ** 2) - (b[0] ** 2 + 2 * b[1] ** 2)); // prefer sliding sideways
+  const near = (dev, x, z) => {
+    for (const [dx, dz] of RING) if (free(dev, x + dx, z + dz)) return put(dev, x + dx, z + dz);
+    put(dev, x, z);                         // desk is full: keep the target
+  };
+
+  // 1. screens across the back, centred; 2 → both toed in, 3 → middle flat + sides toed in
+  const mons = of('monitor').sort((a, b) => a.x - b.x), n = mons.length;
+  const screenOff = m => -m.d / 2 + 4.9;  // screen plane relative to the stand centre
+  const zBack = m => z0 + m.d / 2 + 1;
+  const toe = n === 2 ? 10 : n === 3 ? 20 : 0;
+  let rowL = 0, rowR = 0;                  // outer screen corners, for the speakers
+  const setScreen = (m, cx, cz, rot) => {   // place a monitor so its screen centre is at (cx, cz)
+    m.rot = rot; const o = V(0, 0, screenOff(m)).applyAxisAngle(V(0, 1, 0), rot * DEG);
+    put(m, cx - o.x, cz - o.z);
+  };
+  if (n === 1 || n >= 4 || n === 0) {
+    const total = mons.reduce((s, m) => s + m.w, 0) + (n - 1) * 1;
+    let x = -total / 2;
+    for (const m of mons) { setScreen(m, x + m.w / 2, zBack(m) + screenOff(m), 0); x += m.w + 1; }
+    rowL = -total / 2; rowR = total / 2;
+  } else {
+    const mid = n === 3 ? mons[1] : null, sides = n === 3 ? [mons[0], mons[2]] : mons;
+    const half = mid ? mid.w / 2 + 0.5 : 0.5;
+    const zs = Math.max(...mons.map(m => zBack(m) + screenOff(m)));
+    if (mid) setScreen(mid, 0, zs, 0);
+    sides.forEach((m, i) => {
+      const sg = i ? 1 : -1, th = toe * DEG, inner = sg * half;
+      const cx = inner + sg * (m.w / 2) * Math.cos(th), cz = zs + (m.w / 2) * Math.sin(th);
+      setScreen(m, cx, cz, -sg * toe);
+      if (sg < 0) rowL = inner - m.w * Math.cos(th); else rowR = inner + m.w * Math.cos(th);
+    });
+  }
+
+  // 2. speakers either side of the screens, toed in
+  const spk = of('speaker').sort((a, b) => a.x - b.x);
+  spk.forEach((s, i) => {
+    const left = spk.length === 1 ? false : i < spk.length / 2;
+    s.rot = left ? 14 : -14;
+    const x = left ? rowL - 3 - s.w / 2 : rowR + 3 + s.w / 2;
+    near(s, x, z0 + s.d / 2 + 3);
+  });
+
+  // 3. webcam on top of the main screen(s)
+  of('camera').forEach((c, i) => {
+    const m = mons.length ? mons[n === 3 ? [1, 0, 2][i % 3] : i % n] : null;
+    if (!m) return near(c, 0, z0 + c.d / 2 + 2);
+    const o = V(0, 0, screenOff(m)).applyAxisAngle(V(0, 1, 0), m.rot * DEG);
+    c.rot = m.rot; c.elev = tallOf(m); c.x = m.x + o.x; c.z = m.z + o.z; clampDev(c);
+  });
+
+  // 4. laptop: centre-back when it is the only screen, otherwise to the left
+  of('laptop').forEach(l => { l.rot = 0; n ? near(l, -W / 2 + l.w / 2 + 4, zF - l.d / 2 - 20) : near(l, 0, z0 + l.d / 2 + 6); });
+
+  // 5. keyboard + mouse front-centre, controller to the right of the mouse, mic to the left
+  const kb = of('keyboard'), ms = of('mouse');
+  const kbz = k => zF - k.d / 2 - 12;
+  let rightEdge = 0, leftEdge = 0, frontZ = zF - 20;
+  kb.forEach((k, i) => { k.rot = 0; near(k, 0, kbz(k) - i * (k.d + 4)); if (!i) { rightEdge = k.x + k.w / 2; leftEdge = k.x - k.w / 2; frontZ = k.z; } });
+  ms.forEach(m => { m.rot = 0; near(m, rightEdge + 8 + m.w / 2, frontZ); rightEdge = m.x + m.w / 2; });
+  of('controller').forEach(c => { c.rot = 0; near(c, rightEdge + 10 + c.w / 2, frontZ - 4); rightEdge = c.x + c.w / 2; });
+  of('mic').forEach(m => { m.rot = 0; near(m, leftEdge - 12 - m.w / 2, frontZ - 10); leftEdge = m.x - m.w / 2; });
+
+  // 6. low boxes (dock, DAC) hidden under the screens beside the stand, else at the back
+  const tuck = [...of('dock'), ...of('dac')];
+  tuck.forEach((t, i) => {
+    t.rot = 0;
+    const m = mons[i % Math.max(1, n)];
+    if (m && low(t)) near(t, m.x + (i % 2 ? 1 : -1) * (footOf(m)[0] / 2 + 3 + t.w / 2), z0 + t.d / 2 + 2);
+    else near(t, (i % 2 ? 1 : -1) * W / 4, z0 + t.d / 2 + 2);
+  });
+
+  // 7. everything else (lamp, custom boxes, PC/strip on the desk…) into the back corners
+  const done = new Set([...placed.map(p => p.dev), ...of('camera')]);
+  const rest = desk.filter(d => !done.has(d) && !['deskpad', 'grommet'].includes(d.type));
+  rest.forEach((d, i) => { const sg = i % 2 ? 1 : -1; near(d, sg * (W / 2 - d.w / 2 - 2), z0 + d.d / 2 + 2); });
+
+  // 8. desk mat under keyboard + mouse
+  of('deskpad').forEach(p => {
+    if (!kb.length) return;
+    const xs = [...kb, ...ms].flatMap(d => [d.x - d.w / 2, d.x + d.w / 2]);
+    p.rot = 0; p.x = (Math.min(...xs) + Math.max(...xs)) / 2; p.z = kb[0].z; clampDev(p);
+  });
+
+  histKey = 'arrange'; refresh({ devices: true });
+  const squeezed = spk.some(s => s.z > z0 + s.d / 2 + 15);
+  flash(squeezed ? 'Arranged. No room beside the screens, so the speakers moved forward (try a wider desk or floor stands). Ctrl+Z to undo'
+                 : 'Desk arranged. Ctrl+Z to undo');
+}
 function cycleSel(dir) {
   const list = state.devices; if (!list.length) return;
   const i = list.findIndex(d => d.id === sel.dev);
@@ -1489,8 +1609,10 @@ addEventListener('keydown', e => {
   else if (k === 'l') $('#labelsBtn').click();
   else if (k === 'k') $('#clipsBtn').click();
   else if (k === 'p') autoPower();
+  else if (k === 'a') autoArrange();
 });
 $('#undoBtn').addEventListener('click', undo);
+$('#arrangeBtn').addEventListener('click', autoArrange);
 $('#redoBtn').addEventListener('click', redo);
 $('#helpBtn').addEventListener('click', () => toggleHelp());
 $('#help').addEventListener('click', e => { if (e.target.id === 'help' || e.target.closest('[data-close]')) toggleHelp(false); });

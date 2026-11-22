@@ -25,10 +25,21 @@ Click a button in **Add device**: monitor, PC tower, laptop, keyboard, mouse, sp
 
 **Moving a device:**
 - Drag it in the 3D view. It slides on its own surface (desk top, underside, floor or wall).
+- A monitor's screen may hang past the desk edge. Only its stand has to stay on the desk.
 - Or use the inspector sliders: **Left–right**, **Back–front**, a height slider (**Raise**, **Gap below top** for under-desk items, **Height** on the wall) and **Rotate**.
 - Left–right is measured from the desk's **left edge**, back–front from its **back edge**, so you can copy the numbers from a tape measure.
 
 The inspector also has **Name**, **W / H / D** size, a **Needs a power cable** checkbox, **Duplicate** and **Delete**. A power strip's socket count comes from its width.
+
+**Auto-arrange** (the button above the device list, or **A**) lays out everything on the desk top using each item's real size:
+- Monitors form a centred row at the back. Two are both turned inward; with three, the middle one faces straight ahead and the sides turn inward.
+- Speakers go either side of the screens, angled toward you. If there's no room, they move forward and a message tells you.
+- The webcam sits on top of the main screen.
+- The keyboard is front-centre. The mouse and speaker controller go to its right, the microphone to its left.
+- Low boxes like the dock or audio interface go under the screens, next to the stand.
+- Anything else goes to the nearest free spot toward the back corners, and the desk mat is centred under the keyboard and mouse.
+
+Only desk-top items move. Ctrl+Z undoes it.
 
 ## Cables
 
@@ -97,6 +108,7 @@ Press **?** (or click **Shortcuts**) in the app to see this list.
 | Before / After | **B** |
 | Views: 3D, Chair, Top, Under, Back | **1** to **5** |
 | Connect mode, Auto power | **C**, **P** |
+| Auto-arrange the desk top | **A** |
 | X-ray, Labels, Clips | **X**, **L**, **K** |
 | Export / import the setup | **Ctrl+S** / **Ctrl+O** |
 
@@ -105,7 +117,7 @@ Undo covers every change to the desk, devices and cables (up to 150 steps), incl
 ## Typical workflow for real under-desk routing
 
 1. Click **New** and enter your desk's real width, depth, height, top thickness and gap to the wall.
-2. Add your devices and set their placement. Measure where each one really sits and type that into the sliders as distances from the left and back edges.
+2. Add your devices, set their placement and type in their real **W / H / D**. Then either click **Auto-arrange** for a clean layout, or measure where each one really sits and type that into the sliders as distances from the left and back edges.
 3. Add the wall outlet at its real height and position, and the power strip where it is now.
 4. Connect the signal cables (Connect mode or the form), then click **Auto power**.
 5. Press **B** to compare Before and After, and read the score breakdown to see which cables are still visible.
